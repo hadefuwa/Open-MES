@@ -1,0 +1,30 @@
+{% load machine_tags %}
+{% routing_panel product as routing %}
+{% if routing.steps %}
+<div class="card" style="margin-top:18px">
+  <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:10px">
+    <h2 style="margin:0">Routing</h2>
+    <span class="muted">Own build time <strong>{{ routing.minutes|floatformat:"-1" }} min</strong></span>
+  </div>
+  {% if routing.blocked %}
+  <div class="alert" style="border:1px solid var(--bad);background:var(--bad-soft)">
+    <div class="kpi-icon tone-red"><svg class="icon"><use href="#i-alert"/></svg></div>
+    <div><b>Machine not available</b><span>{% for m in routing.blocked %}<a href="{% url 'machine_detail' m.pk %}">{{ m.name }}</a> ({{ m.get_status_display|lower }}){% if not forloop.last %}, {% endif %}{% endfor %} on this routing. Production may be delayed.</span></div>
+  </div>
+  {% endif %}
+  <div style="overflow-x:auto">
+    <table>
+      <tr><th>Seq</th><th>Step</th><th>Machine</th><th style="text-align:right">Minutes</th></tr>
+      {% for r in routing.steps %}
+      <tr>
+        <td>{{ r.step.sequence }}</td>
+        <td>{{ r.step.name }}</td>
+        <td>{% if r.step.machine %}<a href="{% url 'machine_detail' r.step.machine.pk %}" style="font-weight:600;text-decoration:none">{{ r.step.machine.name }}</a> <span class="pill {{ r.pill }}">{{ r.step.machine.get_status_display }}</span>{% else %}<span class="muted">Manual (no machine)</span>{% endif %}</td>
+        <td style="text-align:right">{{ r.step.minutes|floatformat:"-1" }}</td>
+      </tr>
+      {% endfor %}
+      <tr><td></td><td><strong>Total</strong></td><td></td><td style="text-align:right"><strong>{{ routing.minutes|floatformat:"-1" }}</strong></td></tr>
+    </table>
+  </div>
+</div>
+{% endif %}

@@ -1,0 +1,47 @@
+{% extends "mes/base.html" %}
+{% block title %}{{ report.report_id }} · Open-MES{% endblock %}
+{% block content %}
+<div class="row" style="justify-content:space-between;align-items:center;margin:8px 0 4px">
+  <h1>{{ report.report_id }}</h1>
+  <span class="pill {% if report.passed %}ok{% else %}bad{% endif %}" style="font-size:14px;padding:4px 14px">{{ report.overall_result }}</span>
+</div>
+<p class="sub"><a href="{{ report.product.get_absolute_url }}" class="code" style="text-decoration:none">{{ report.product.code }}</a> {{ report.product.name }} · Serial <a href="{% url 'traceability' %}?serial={{ report.serial|urlencode }}"><strong>{{ report.serial }}</strong></a>
+  · {{ report.test_date|date:"d M Y" }}</p>
+
+<div class="grid">
+  <div class="card span-8">
+    <div class="card-head"><h2>Summary</h2><span class="hint">Procedure {{ report.procedure }}</span></div>
+    <div class="row" style="gap:28px;margin-bottom:14px">
+      <div><div class="muted">Tested by</div><b>{% if report.technician %}<a href="{% url 'my_jobs' %}?technician={{ report.technician.pk }}">{{ report.tester }}</a>{% else %}{{ report.tester|default:"&ndash;" }}{% endif %}</b></div>
+      <div><div class="muted">Date</div><b>{{ report.test_date|date:"d M Y" }}</b></div>
+      {% if report.build_reference %}<div><div class="muted">Build reference</div><b>{{ report.build_reference }}</b></div>{% endif %}
+      {% if report.unit %}<div><div class="muted">Work order</div><b><a href="{% url 'operator' report.unit.work_order.pk %}">{{ report.unit.work_order.number }}</a></b></div>{% endif %}
+    </div>
+    <div class="bar-track" style="height:10px;margin:0"><div class="bar-fill" style="width:{{ pct }}%;{% if failed %}background:var(--bad){% endif %}"></div></div>
+    <div class="muted" style="margin-top:6px">{{ passed }} of {{ total }} steps passed{% if failed %} · <span style="color:var(--bad);font-weight:700">{{ failed }} failed</span>{% endif %}</div>
+  </div>
+  <div class="card span-4">
+    <div class="card-head"><h2>Comments</h2></div>
+    <p style="margin:0">{% if report.comments %}{{ report.comments }}{% else %}<span class="muted">No comments recorded.</span>{% endif %}</p>
+  </div>
+</div>
+
+{% for s in sections %}
+<div class="card">
+  <div class="card-head"><h2>{{ s.name }}</h2><span class="hint">{{ s.steps|length }} steps</span></div>
+  <div style="overflow-x:auto">
+  <table>
+    <tr><th style="width:60px">Step</th><th>Criteria</th><th style="width:90px">Result</th><th style="width:90px">Sign-off</th></tr>
+    {% for st in s.steps %}
+    <tr {% if st.result == "FAIL" %}style="background:var(--bad-soft)"{% endif %}>
+      <td><strong>{{ st.number }}</strong></td>
+      <td>{{ st.criteria }}{% if st.comments %}<div class="muted" style="margin-top:4px">Note: {{ st.comments }}</div>{% endif %}</td>
+      <td><span class="pill {% if st.result == 'PASS' %}ok{% elif st.result == 'FAIL' %}bad{% else %}warn{% endif %}">{{ st.result|default:"&ndash;" }}</span></td>
+      <td class="muted">{{ st.sign_off }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  </div>
+</div>
+{% endfor %}
+{% endblock %}

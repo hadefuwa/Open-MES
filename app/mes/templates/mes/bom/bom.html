@@ -1,0 +1,84 @@
+{% extends "mes/base.html" %}
+{% load bom_tags %}
+{% block title %}BOM {{ product.code }} · Open-MES{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1><span class="code">{{ product.code }}</span> {{ product.name }}</h1>
+    <p class="sub">Bill of materials and cost roll-up &middot; <span class="pill {% if product.kind == 'finished' %}ok{% else %}info{% endif %}">{{ product.get_kind_display }}</span>
+      &middot; <a href="{{ product.get_absolute_url }}">Product page</a>
+      &middot; created {{ product.created_at|date:"d M Y H:i" }} &middot; updated {{ product.updated_at|date:"d M Y H:i" }}</p>
+  </div>
+  {% if view == "tree" %}<div class="row"><a href="?view=tree&amp;format=csv"><button class="small" type="button">Export explosion CSV</button></a></div>{% endif %}
+</div>
+
+<div class="grid">
+  <div class="card span-3"><div class="kpi">
+    <div class="kpi-icon tone-blue"><svg class="icon"><use href="#i-parts"/></svg></div>
+    <div><div class="label">BOM cost</div><div class="num">&pound;{{ material|floatformat:2 }}</div><div class="note">materials</div></div>
+  </div></div>
+  <div class="card span-3"><div class="kpi">
+    <div class="kpi-icon tone-amber"><svg class="icon"><use href="#i-clock"/></svg></div>
+    <div><div class="label">Build time</div><div class="num">{{ minutes|floatformat:"-1" }} min</div><div class="note">incl. sub-assemblies</div></div>
+  </div></div>
+  <div class="card span-3"><div class="kpi">
+    <div class="kpi-icon tone-violet"><svg class="icon"><use href="#i-activity"/></svg></div>
+    <div><div class="label">Labour cost</div><div class="num">&pound;{{ labour|floatformat:2 }}</div><div class="note">at &pound;{{ labour_rate|floatformat:"-2" }}/hour</div></div>
+  </div></div>
+  <div class="card span-3"><div class="kpi">
+    <div class="kpi-icon tone-green"><svg class="icon"><use href="#i-trend"/></svg></div>
+    <div><div class="label">Cost to manufacture</div><div class="num">&pound;{{ total|floatformat:2 }}</div><div class="note">{{ component_count }} distinct component{{ component_count|pluralize }}</div></div>
+  </div></div>
+</div>
+
+<div class="row" style="margin:16px 0 12px">
+  <a href="?view=tree"><button class="small" type="button"{% if view != 'tree' %} style="background:var(--accent-soft);color:var(--accent)"{% endif %}>Indented explosion</button></a>
+  <a href="?view=flat"><button class="small" type="button"{% if view != 'flat' %} style="background:var(--accent-soft);color:var(--accent)"{% endif %}>All components (flattened)</button></a>
+</div>
+
+{% if view == "flat" %}
+  {% include "mes/_table.html" %}
+{% else %}
+<div class="card">
+  <div class="card-head"><h2>Indented explosion</h2>
+    <span class="hint">{{ rows|length }} line{{ rows|length|pluralize }} &middot; {{ assembly_count }} sub-assembl{{ assembly_count|pluralize:"y,ies" }} &middot; {{ max_level|add:1 }} level{{ max_level|add:1|pluralize }}</span></div>
+  <div style="overflow-x:auto"><table>
+    <tr><th>Item</th><th>Name</th><th style="text-align:right">Qty</th><th style="text-align:right">Total qty</th>
+      <th style="text-align:right">Unit cost</th><th style="text-align:right">Line cost</th><th style="text-align:right">Extended cost</th><th style="text-align:right">Build</th></tr>
+    <tr style="background:var(--accent-soft);font-weight:700">
+      <td><span class="code">{{ product.code }}</span></td><td>{{ product.name }}</td><td></td><td style="text-align:right">1</td>
+      <td></td><td></td><td style="text-align:right">&pound;{{ material|floatformat:2 }}</td><td style="text-align:right">{{ minutes|floatformat:"-1" }} min</td>
+    </tr>
+    {% for r in rows %}
+    <tr{% if r.is_assembly %} style="font-weight:600"{% endif %}>
+      <td style="padding-left:{{ r.indent|add:12 }}px">
+        {% if r.level %}<span class="muted">&#8627;</span> {% endif %}<a href="{% if r.is_assembly %}{% url 'bom' r.child.pk %}{% else %}{% url 'component_detail' r.child.pk %}{% endif %}" style="text-decoration:none;font-weight:700"><span class="code">{{ r.child.code }}</span></a>
+      </td>
+      <td>{{ r.child.name }}{% if r.is_assembly %} <span class="pill info">Assembly</span>{% endif %}</td>
+      <td style="text-align:right">{{ r.quantity|floatformat:"-2" }}</td>
+      <td style="text-align:right" class="muted">{{ r.ext_quantity|floatformat:"-2" }}</td>
+      <td style="text-align:right">{{ r.unit_cost|money }}</td>
+      <td style="text-align:right">{{ r.line_cost|money }}</td>
+      <td style="text-align:right">{% if r.is_assembly %}<strong>{{ r.ext_cost|money }}</strong>{% else %}<span class="muted">{{ r.ext_cost|money }}</span>{% endif %}</td>
+      <td style="text-align:right" class="muted">{% if r.minutes %}{{ r.minutes|floatformat:"-1" }} min{% endif %}</td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="8" class="empty">This item has no bill of materials (purchased component, unit cost &pound;{{ product.unit_cost|default:"0" }}).</td></tr>
+    {% endfor %}
+  </table></div>
+  <p class="muted" style="margin:12px 0 0;font-size:13px">Assembly unit cost is rolled up from its own BOM. Total qty is the quantity needed per one {{ product.code }}. Extended cost = total qty &times; unit cost.</p>
+</div>
+{% endif %}
+
+{% if where_used %}
+<div class="card" style="margin-top:14px">
+  <div class="card-head"><h2>Used in finished products</h2><span class="hint">{{ where_used|length }}</span></div>
+  <div style="overflow-x:auto"><table>
+    <tr><th>Product</th><th>Name</th><th style="text-align:right">Qty per unit</th></tr>
+    {% for w in where_used %}
+    <tr><td><a href="{% url 'bom' w.product.pk %}" style="text-decoration:none;font-weight:700"><span class="code">{{ w.product.code }}</span></a></td><td>{{ w.product.name }}</td><td style="text-align:right">{{ w.quantity|floatformat:"-2" }}</td></tr>
+    {% endfor %}
+  </table></div>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,158 @@
+{% extends "mes/base.html" %}
+{% block content %}
+<div class="row" style="justify-content:space-between;align-items:center;margin:8px 0 4px">
+  <h1>Work order {{ order.number }}</h1>
+  <span class="badge st-{{ order.status }}">{{ order.get_status_display }}</span>
+</div>
+<p class="sub"><a href="{{ order.product.get_absolute_url }}" class="code" style="text-decoration:none">{{ order.product.code }}</a> {{ order.product.name }} &times; {{ order.quantity }}
+  · {{ order.workstation|default:"No workstation" }}
+  {% if order.due_date %}· due {{ order.due_date|date:"d M" }}{% endif %}
+  {% if order.est_minutes %}· est {{ order.est_minutes }} min{% endif %}
+  · {% if order.printed %}printed{% else %}not printed{% endif %}</p>
+
+<div class="stepper">
+  {% for label, state in steps %}<div class="step {{ state }}">{{ label }}</div>{% endfor %}
+</div>
+
+{% if error %}<div class="err">{{ error }}</div>{% endif %}
+
+<div class="card">
+  <form method="post" action="{% url 'assign' order.pk %}" class="row">{% csrf_token %}
+    <label>Production technician
+      <select name="technician">
+        <option value="">Unassigned</option>
+        {% for o in technicians %}<option value="{{ o.id }}" {% if order.technician_id == o.id %}selected{% endif %}>{{ o.name }}</option>{% endfor %}
+      </select>
+    </label>
+    <button class="small">Assign</button>
+    <a href="{% url 'print_sheet' order.pk %}" target="_blank" style="margin-left:auto;font-weight:600">Print work order &nearr;</a>
+  </form>
+</div>
+
+{% if order.status == "entered" %}
+  <form method="post" action="{% url 'allocate' order.pk %}">{% csrf_token %}
+    <button class="big">Allocate stock</button>
+  </form>
+{% elif order.status == "allocated" %}
+  <form method="post" action="{% url 'issue' order.pk %}">{% csrf_token %}
+    <button class="big">Issue stock to job</button>
+  </form>
+{% elif order.status == "issued" %}
+  <form method="post" action="{% url 'start' order.pk %}">{% csrf_token %}
+    <button class="big ok">Start job</button>
+  </form>
+{% endif %}
+
+{% if order.status == "in_progress" %}
+  <div class="card">
+    <h2 style="margin-bottom:12px">Record a unit</h2>
+    <form method="post" action="{% url 'add_unit' order.pk %}" class="row">{% csrf_token %}
+      <label>Serial number<input name="serial" placeholder="Scan or type" autofocus required></label>
+      <label>Result
+        <select name="result">
+          <option value="pass">Pass</option>
+          <option value="rework">Rework</option>
+          <option value="scrap">Scrap</option>
+        </select>
+      </label>
+      <label style="flex:1;min-width:200px">Reason (rework / scrap)<input name="reason" placeholder="What went wrong?"></label>
+      <button>Add unit</button>
+    </form>
+  </div>
+{% endif %}
+
+{% if units %}
+<div class="card">
+  <h2 style="margin-bottom:6px">Units ({{ units|length }} / {{ order.quantity }})</h2>
+  <table>
+    <tr><th>Serial</th><th>Result</th><th>Reason</th><th>Test report</th><th></th></tr>
+    {% for u in units %}
+    <tr>
+      <td><a href="{% url 'traceability' %}?serial={{ u.serial|urlencode }}" style="font-weight:700;text-decoration:none">{{ u.serial }}</a></td>
+      <td><span class="pill {% if u.result == 'pass' %}ok{% elif u.result == 'rework' %}warn{% elif u.result == 'scrap' %}bad{% endif %}">{{ u.get_result_display }}</span></td>
+      <td class="muted">{{ u.reason }}</td>
+      <td>{% for tr in u.test_reports.all %}<a href="{% url 'test_report' tr.pk %}" style="font-weight:600">{{ tr.report_id }}</a>{% endfor %}</td>
+      <td style="text-align:right">
+        {% if u.result == "rework" and order.status == "in_progress" %}
+        <form method="post" action="{% url 'retest_unit' order.pk u.pk %}" class="row" style="justify-content:flex-end">{% csrf_token %}
+          <button name="result" value="pass" class="ok small">Retest: pass</button>
+          <button name="result" value="scrap" class="bad small">Scrap</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+{% endif %}
+
+{% if order.status == "in_progress" or order.status == "qa" %}
+{% load defect_tags %}
+<div class="card" id="defect-form">
+  <h2 style="margin-bottom:4px">Record a defect</h2>
+  <p class="muted" style="margin:0 0 12px">Waste a part or a whole unit against this build. The cost is taken from the part, or the product's cost to manufacture.</p>
+  {% if request.GET.notice %}<div class="pill ok" style="margin-bottom:12px;padding:8px 12px">{{ request.GET.notice }}</div>{% endif %}
+  <form method="post" action="{% url 'defect_add' order.pk %}" class="row" style="align-items:flex-end">{% csrf_token %}
+    <label>Defective part
+      <select name="component" required style="max-width:240px">
+        <option value="">Choose&hellip;</option>
+        <option value="whole">Whole unit</option>
+        {% defect_part_choices order as parts %}
+        {% for p in parts %}<option value="{{ p.pk }}">{{ p.code }} &middot; {{ p.name|truncatechars:42 }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>Quantity<input type="number" name="quantity" value="1" min="1" max="10000" required style="width:90px"></label>
+    <label>Serial (optional)
+      <select name="serial">
+        <option value="">None</option>
+        {% defect_order_units order as dunits %}
+        {% for u in dunits %}<option value="{{ u.serial }}">{{ u.serial }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>Reported by
+      <select name="reported_by">
+        <option value="">{{ order.technician|default:"Unassigned" }}</option>
+        {% for o in technicians %}<option value="{{ o.id }}">{{ o.name }}</option>{% endfor %}
+      </select>
+    </label>
+    <label style="flex:1;min-width:160px">Description<input name="description" placeholder="e.g. Cracked acrylic on fitting" maxlength="300" required></label>
+    <button class="bad">Record defect</button>
+  </form>
+</div>
+{% endif %}
+
+{% if order.status == "in_progress" %}
+  <form method="post" action="{% url 'finish' order.pk %}">{% csrf_token %}
+    <button class="big warn">Finish build &rarr; send to QA</button>
+  </form>
+{% endif %}
+
+{% if order.status == "qa" %}
+  <div class="card">
+    <strong>Awaiting team leader QA sign-off</strong>
+    <p class="muted" style="margin:4px 0 12px">Check the sampled units and visual finish, then approve or send back.</p>
+    <form method="post" class="row" style="align-items:center">{% csrf_token %}
+      <button class="ok" formaction="{% url 'approve' order.pk %}">Approve &amp; complete</button>
+      <button class="bad" formaction="{% url 'reject' order.pk %}">Reject &mdash; back to build</button>
+    </form>
+  </div>
+{% endif %}
+
+<div class="card">
+  <div class="card-head"><h2>Related records</h2><span class="hint">Created {{ order.created_at|date:"d M Y H:i" }} · updated {{ order.updated_at|date:"d M Y H:i" }}</span></div>
+  <div class="row" style="gap:28px;align-items:flex-start">
+    <div><div class="muted">Product</div><a href="{{ order.product.get_absolute_url }}" style="font-weight:700">{{ order.product.code }}</a>
+      <div><a href="{% url 'bom' order.product.pk %}" style="font-size:13px">Bill of materials</a></div></div>
+    <div><div class="muted">Customer orders</div>
+      {% for l in order.order_lines.all %}<div><a href="{% url 'customer_order' l.order.pk %}" style="font-weight:700">{{ l.order.number }}</a> <span class="muted">{{ l.order.customer }}</span></div>
+      {% empty %}<span class="muted">Built for stock</span>{% endfor %}</div>
+    <div><div class="muted">Technician</div>
+      {% if order.technician %}<a href="{% url 'my_jobs' %}?technician={{ order.technician.pk }}" style="font-weight:700">{{ order.technician.name }}</a>{% else %}<span class="muted">Unassigned</span>{% endif %}</div>
+    <div><div class="muted">Defects</div>
+      {% with n=order.defects.count %}{% if n %}<a href="{% url 'defects' %}?q={{ order.number }}" style="font-weight:700">{{ n }} recorded</a>{% else %}<span class="muted">None</span>{% endif %}{% endwith %}</div>
+    <div><div class="muted">Test reports</div>
+      {% for u in units %}{% for tr in u.test_reports.all %}<div><a href="{% url 'test_report' tr.pk %}" style="font-weight:700">{{ tr.report_id }}</a></div>{% endfor %}{% endfor %}
+      {% if not order.units.exists %}<span class="muted">None</span>{% endif %}</div>
+  </div>
+</div>
+{% endblock %}

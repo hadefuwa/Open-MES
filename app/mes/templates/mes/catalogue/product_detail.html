@@ -1,0 +1,103 @@
+{% extends "mes/base.html" %}
+{% block title %}{{ product.code }} · Open-MES{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1><span class="code">{{ product.code }}</span> {{ product.name }}</h1>
+    <p class="sub"><span class="pill info">{{ product.get_kind_display }}</span> <span class="pill">{{ product.category }}</span></p>
+  </div>
+  {% if has_bom %}<a href="{% url 'bom' product.pk %}"><button type="button">View bill of materials</button></a>{% endif %}
+</div>
+
+<div class="grid">
+  <div class="card span-3"><div class="kpi">
+    <div class="kpi-icon tone-blue"><svg class="icon"><use href="#i-clock"/></svg></div>
+    <div><div class="label">Build time</div><div class="num">{{ build_minutes|floatformat:0 }} min</div><div class="note">all routing steps</div></div>
+  </div></div>
+  <div class="card span-3"><div class="kpi">
+    <div class="kpi-icon tone-amber"><svg class="icon"><use href="#i-parts"/></svg></div>
+    <div><div class="label">BOM cost</div><div class="num">£{{ bom_cost|floatformat:2 }}</div><div class="note">materials</div></div>
+  </div></div>
+  <div class="card span-3"><div class="kpi">
+    <div class="kpi-icon tone-violet"><svg class="icon"><use href="#i-activity"/></svg></div>
+    <div><div class="label">Labour cost</div><div class="num">£{{ labour_cost|floatformat:2 }}</div><div class="note">at £{{ labour_rate|floatformat:2 }} per hour</div></div>
+  </div></div>
+  <div class="card span-3"><div class="kpi">
+    <div class="kpi-icon tone-green"><svg class="icon"><use href="#i-trend"/></svg></div>
+    <div><div class="label">Total cost to manufacture</div><div class="num">£{{ total_cost|floatformat:2 }}</div><div class="note">BOM plus labour</div></div>
+  </div></div>
+</div>
+
+{% if product.rrp %}
+<div class="grid">
+  <div class="card span-4"><div class="kpi">
+    <div class="kpi-icon tone-blue"><svg class="icon"><use href="#i-orders"/></svg></div>
+    <div><div class="label">RRP</div><div class="num">£{{ product.rrp|floatformat:2 }}</div><div class="note">{% if product.rrp_estimated %}estimated (not on the price list){% elif product.range_name %}{{ product.range_name }} range{% else %}list price{% endif %}</div></div>
+  </div></div>
+  <div class="card span-4"><div class="kpi">
+    <div class="kpi-icon tone-green"><svg class="icon"><use href="#i-trend"/></svg></div>
+    <div><div class="label">Margin</div><div class="num">£{{ product.margin|floatformat:2 }}</div><div class="note">RRP minus cost to manufacture</div></div>
+  </div></div>
+  <div class="card span-4"><div class="kpi">
+    <div class="kpi-icon {% if product.margin_pct >= 50 %}tone-green{% elif product.margin_pct >= 30 %}tone-amber{% else %}tone-red{% endif %}"><svg class="icon"><use href="#i-check"/></svg></div>
+    <div><div class="label">Margin %</div><div class="num">{{ product.margin_pct }}%</div><div class="note">BOM cost is {% widthratio product.bom_cost product.rrp 100 %}% of RRP</div></div>
+  </div></div>
+</div>
+{% endif %}
+
+<div class="grid">
+  <div class="card span-4">
+    <h3>Information</h3>
+    <table>
+      <tr><td class="muted">Code</td><td><span class="code">{{ product.code }}</span></td></tr>
+      <tr><td class="muted">Name</td><td>{{ product.name }}</td></tr>
+      <tr><td class="muted">Kind</td><td>{{ product.get_kind_display }}</td></tr>
+      <tr><td class="muted">Category</td><td>{{ product.category }}</td></tr>
+      <tr><td class="muted">Units sold</td><td>{{ units_sold }}</td></tr>
+      <tr><td class="muted">Created</td><td>{{ product.created_at|date:"d M Y H:i" }}</td></tr>
+      <tr><td class="muted">Updated</td><td>{{ product.updated_at|date:"d M Y H:i" }}</td></tr>
+    </table>
+  </div>
+  <div class="card span-8">
+    <h3>Last built</h3>
+    <div style="overflow-x:auto">
+    <table>
+      <tr><th>Work order</th><th>Quantity</th><th>Status</th><th>Due</th><th>Updated</th></tr>
+      {% for wo in work_orders %}
+      <tr>
+        <td><a href="{% url 'operator' wo.pk %}" style="font-weight:700;text-decoration:none">{{ wo.number }}</a></td>
+        <td>{{ wo.quantity }}</td>
+        <td><span class="badge st-{{ wo.status }}">{{ wo.get_status_display }}</span></td>
+        <td>{{ wo.due_date|date:"d M Y" }}</td>
+        <td>{{ wo.updated_at|date:"d M Y H:i" }}</td>
+      </tr>
+      {% empty %}<tr><td colspan="5" class="empty">No work orders for this product yet.</td></tr>{% endfor %}
+    </table>
+    </div>
+    {% if units %}
+    <h3 style="margin-top:16px">Recent serial numbers</h3>
+    <div style="overflow-x:auto">
+    <table>
+      <tr><th>Serial</th><th>Work order</th><th>Result</th><th>Built</th></tr>
+      {% for u in units %}
+      <tr>
+        <td><a href="{% url 'traceability' %}?serial={{ u.serial|urlencode }}" style="font-weight:700;text-decoration:none">{{ u.serial }}</a></td>
+        <td><a href="{% url 'operator' u.work_order.pk %}" style="text-decoration:none">{{ u.work_order.number }}</a></td>
+        <td><span class="pill {% if u.result == 'pass' %}ok{% elif u.result == 'pending' %}info{% elif u.result == 'rework' %}warn{% else %}bad{% endif %}">{{ u.get_result_display }}</span></td>
+        <td>{{ u.created_at|date:"d M Y H:i" }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+
+<h2 style="margin-top:8px">Sales history</h2>
+{% with table=sales %}{% include "mes/_table.html" %}{% endwith %}
+
+{% include "mes/bom/_product_panel.html" %}
+{% include "mes/machines/_product_panel.html" %}
+{% include "mes/defects/_product_panel.html" %}
+{% endblock %}

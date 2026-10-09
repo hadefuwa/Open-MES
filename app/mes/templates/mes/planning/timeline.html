@@ -1,0 +1,225 @@
+{% extends "mes/base.html" %}
+{% block title %}Planning timeline · Open-MES{% endblock %}
+{% block content %}
+<style>
+  .tl-scroll { overflow:auto; max-height:80vh; border:1px solid var(--line); border-radius:12px; background:var(--card); }
+  .tl { position:relative; --dw:{{ day_px }}px; --lw:{{ label_px }}px; width:calc(var(--lw) + var(--dw) * {{ ndays }}); }
+  .tl-head { position:sticky; top:0; z-index:5; background:var(--card); border-bottom:1px solid var(--line); }
+  .tl-row { display:flex; position:relative; border-bottom:1px solid var(--line); min-height:32px; }
+  .tl-row.ship { min-height:42px; }
+  .tl-label { position:sticky; left:0; z-index:4; flex:none; width:var(--lw); background:var(--card); border-right:1px solid var(--line);
+              padding:5px 12px; display:flex; flex-direction:column; justify-content:center; gap:1px; font-size:13px; line-height:1.25;
+              white-space:nowrap; overflow:hidden; }
+  .tl-label a { font-weight:700; text-decoration:none; }
+  .tl-label .l2 { font-size:12px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; }
+  .tl-label .l1 { display:flex; gap:6px; align-items:baseline; overflow:hidden; text-overflow:ellipsis; }
+  .tl-track { position:relative; flex:none; width:calc(var(--dw) * {{ ndays }});
+              background-image:
+                repeating-linear-gradient(to right, transparent 0 calc(var(--dw) * 5), color-mix(in srgb, var(--muted) 12%, transparent) calc(var(--dw) * 5) calc(var(--dw) * 7)),
+                repeating-linear-gradient(to right, var(--line) 0 1px, transparent 1px calc(var(--dw) * 7)); }
+  .tl-section .tl-label { font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:var(--accent); background:var(--accent-soft); }
+  .tl-section .tl-track { background:var(--accent-soft); display:flex; align-items:center; padding-left:10px; font-size:12px; color:var(--muted); }
+  .tl-group { min-height:28px; }
+  .tl-group .tl-label { background:var(--bg); flex-direction:row; align-items:center; gap:8px; }
+  .tl-group .tl-track { background-color:var(--bg); }
+  .tl-group .name { color:var(--muted); font-size:12px; overflow:hidden; text-overflow:ellipsis; }
+  .tl-weeks, .tl-days { display:flex; margin-left:var(--lw); }
+  .tl-weeks div { width:calc(var(--dw) * 7); flex:none; font-size:12px; font-weight:700; color:var(--muted); padding:6px 0 2px 6px;
+                  border-left:1px solid var(--line); box-sizing:border-box; }
+  .tl-days div { width:var(--dw); flex:none; text-align:center; font-size:11px; color:var(--muted); padding:2px 0 6px; box-sizing:border-box; }
+  .tl-days div.we { background:color-mix(in srgb, var(--muted) 12%, transparent); }
+  .tl-days div.today { color:var(--accent); font-weight:800; }
+  .tl-days div.today span { background:var(--accent); color:var(--card); border-radius:99px; padding:1px 5px; }
+  .tl-corner { position:absolute; left:0; top:0; width:var(--lw); height:100%; background:var(--card); border-right:1px solid var(--line);
+               display:flex; align-items:flex-end; padding:0 12px 8px; font-size:12px; color:var(--muted); font-weight:700; z-index:6; }
+  .tl-headwrap { position:relative; }
+  .tl-today { position:absolute; top:0; bottom:0; width:2px; background:var(--accent); opacity:.7; z-index:2; pointer-events:none;
+              left:calc(var(--lw) + var(--dw) * {{ today_idx|default:0 }} + var(--dw) / 2 - 1px); }
+
+  .tl-bar { position:absolute; top:5px; height:22px; box-sizing:border-box; border-radius:6px; border:1px solid currentColor;
+            background:color-mix(in srgb, currentColor 22%, var(--card)); text-decoration:none; z-index:1; transition:opacity .12s; }
+  .tl-bar .fill { position:absolute; inset:0 auto 0 0; background:currentColor; opacity:.5; border-radius:5px 0 0 5px; }
+  .tl-bar .txt { position:absolute; left:7px; right:5px; top:0; line-height:20px; font-size:12px; font-weight:700; color:var(--ink);
+                 white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .tl-bar.out .txt { left:100%; right:auto; margin-left:7px; overflow:visible; }
+  .tl-bar.out.left .txt { left:auto; right:100%; margin:0 7px 0 0; }
+  .tl-bar.od { outline:2px solid var(--bad); outline-offset:1px; }
+  .tl-bar.clip-l { border-left-style:dashed; border-top-left-radius:0; border-bottom-left-radius:0; }
+  .tl-bar.clip-r { border-right-style:dashed; border-top-right-radius:0; border-bottom-right-radius:0; }
+  .tl-bar:hover, .tl-ship:hover i { filter:brightness(1.1); box-shadow:0 2px 8px rgba(16,24,40,.25); z-index:3; }
+  .tl.focus .tl-bar:not(.hl) { opacity:.3; }
+  .tl-bar.hl { outline:2px solid var(--accent); outline-offset:1px; }
+  .tl-od { font-size:10px; font-weight:800; text-transform:uppercase; padding:1px 6px; border-radius:99px; background:var(--bad-soft); color:var(--bad); }
+  .tl-ship { position:absolute; top:12px; width:16px; height:16px; z-index:2; text-decoration:none; }
+  .tl-ship i { display:block; width:12px; height:12px; margin:2px; transform:rotate(45deg); background:var(--info); border:2px solid var(--card); box-shadow:0 0 0 1px var(--info); }
+  .tl-ship.ok i { background:var(--ok); box-shadow:0 0 0 1px var(--ok); }
+  .tl-ship.warn i { background:var(--warn); box-shadow:0 0 0 1px var(--warn); }
+  .tl-ship.bad i { background:var(--bad); box-shadow:0 0 0 1px var(--bad); }
+  .tl-ship .txt { position:absolute; left:22px; top:-1px; font-size:12px; font-weight:700; color:var(--ink); white-space:nowrap; line-height:18px; }
+  .tl-ship.left .txt { left:auto; right:22px; }
+  .tl-conn { position:absolute; top:19px; height:0; border-top:2px dashed var(--muted); opacity:.55; z-index:0; }
+  .tl-conn.bad { border-color:var(--bad); opacity:.8; }
+  .tl-legend { display:flex; flex-wrap:wrap; gap:6px 16px; margin-top:12px; font-size:12.5px; color:var(--muted); align-items:center; }
+  .tl-legend i { display:inline-block; width:12px; height:12px; border-radius:3px; background:currentColor; margin-right:5px; vertical-align:-1px; }
+  .tl-legend i.dia { transform:rotate(45deg) scale(.8); border-radius:1px; }
+  .tl-nav { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .tl-nav a button { background:var(--card); color:var(--ink); border:1px solid var(--line); }
+  .tl-empty { position:sticky; left:0; padding:9px 12px; font-size:13px; color:var(--muted); }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+</style>
+
+<div class="page-head">
+  <div>
+    <h1>Planning timeline</h1>
+    <p class="sub">What needs to be built when, and shipped when &middot; {{ win_start|date:"j M Y" }} to {{ win_end|date:"j M Y" }}.</p>
+  </div>
+  <div class="tl-nav">
+    <a href="{{ prev_url }}"><button type="button" class="small">&larr; Earlier</button></a>
+    <a href="{{ today_url }}"><button type="button" class="small">Today</button></a>
+    <a href="{{ next_url }}"><button type="button" class="small">Later &rarr;</button></a>
+  </div>
+</div>
+
+<div class="grid">
+  <div class="card span-3"><div class="kpi">
+    <div class="kpi-icon tone-blue"><svg class="icon"><use href="#i-clock"/></svg></div>
+    <div><div class="label">Due this week</div><div class="num">{{ kpi.due_week }}</div><div class="note">open orders, to {{ kpi.week_end|date:"D j M" }}</div></div>
+  </div></div>
+  <div class="card span-3"><div class="kpi">
+    <div class="kpi-icon tone-red"><svg class="icon"><use href="#i-alert"/></svg></div>
+    <div><div class="label">Overdue</div><div class="num">{{ kpi.overdue }}</div><div class="note">open past their due date</div></div>
+  </div></div>
+  <div class="card span-3"><div class="kpi">
+    <div class="kpi-icon tone-green"><svg class="icon"><use href="#i-box"/></svg></div>
+    <div><div class="label">Shipping this week</div><div class="num">{{ kpi.ship_week }}</div><div class="note">customer orders, to {{ kpi.week_end|date:"D j M" }}</div></div>
+  </div></div>
+  <div class="card span-3"><div class="kpi">
+    <div class="kpi-icon tone-amber"><svg class="icon"><use href="#i-calendar"/></svg></div>
+    <div><div class="label">Shipping late</div><div class="num">{{ kpi.ship_late }}</div><div class="note">ship date passed, build unfinished</div></div>
+  </div></div>
+</div>
+
+<div class="card">
+  <form method="get" class="row" style="margin-bottom:14px">
+    {% if p.shift %}<input type="hidden" name="shift" value="{{ p.shift }}">{% endif %}
+    <label>Product
+      <select name="product" onchange="this.form.submit()">
+        <option value="">All products</option>
+        {% for pr in products %}<option value="{{ pr.pk }}" {% if p.product == pr.pk|stringformat:"s" %}selected{% endif %}>{{ pr.code }} &middot; {{ pr.name|truncatechars:34 }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>Technician
+      <select name="tech" onchange="this.form.submit()">
+        <option value="">Everyone</option>
+        {% for t in technicians %}<option value="{{ t.pk }}" {% if p.tech == t.pk|stringformat:"s" %}selected{% endif %}>{{ t.name }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>Status
+      <select name="status" onchange="this.form.submit()">
+        {% for key, label in status_filters %}<option value="{{ key }}" {% if p.status == key %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>Look ahead
+      <select name="weeks" onchange="this.form.submit()">
+        {% for w in week_choices %}<option value="{{ w }}" {% if p.weeks == w %}selected{% endif %}>{{ w }} weeks</option>{% endfor %}
+      </select>
+    </label>
+    <button class="small">Apply</button>
+    <a href="{% url 'timeline' %}" style="align-self:center;font-weight:600;font-size:14px">Reset</a>
+  </form>
+
+  <div class="tl-scroll" id="tl-scroll">
+    <div class="tl" id="tl">
+      {% if today_idx is not None %}<div class="tl-today"></div>{% endif %}
+      <div class="tl-head">
+        <div class="tl-headwrap">
+          <div class="tl-corner">{{ win_start|date:"M Y" }}</div>
+          <div class="tl-weeks">{% for w in weeks %}<div>Week of {{ w.label }}</div>{% endfor %}</div>
+          <div class="tl-days">{% for d in days %}<div class="{% if d.weekday >= 5 %}we{% endif %}{% if d == today %} today{% endif %}" title="{{ d|date:'l j F Y' }}">{% if d == today %}<span>{{ d.day }}</span>{% else %}{{ d.day }}{% endif %}</div>{% endfor %}</div>
+        </div>
+      </div>
+
+      {% for r in rows %}
+        {% if r.type == "section" %}
+        <div class="tl-row tl-section"><div class="tl-label">{{ r.title }}</div><div class="tl-track">{{ r.note }}</div></div>
+
+        {% elif r.type == "group" %}
+        <div class="tl-row tl-group"><div class="tl-label"><a href="{{ r.product.get_absolute_url }}" class="code" style="font-weight:600">{{ r.product.code }}</a><span class="name">{{ r.product.name }}</span></div><div class="tl-track"></div></div>
+
+        {% elif r.type == "wo" %}
+        <div class="tl-row">
+          <div class="tl-label">
+            <div class="l1"><a href="{% url 'operator' r.wo.pk %}">{{ r.wo.number }}</a><span>&times;{{ r.wo.quantity }}</span>{% if r.wo.is_overdue %}<span class="tl-od">Overdue</span>{% endif %}</div>
+            <div class="l2">{{ r.wo.get_status_display }} &middot; {% firstof r.wo.technician.name "unassigned" %}</div>
+          </div>
+          <div class="tl-track">
+            <a class="tl-bar st-{{ r.wo.status }}{% if r.bar.label_pos != 'in' %} out{% endif %}{% if r.bar.label_pos == 'left' %} left{% endif %}{% if r.wo.is_overdue %} od{% endif %}{% if r.bar.clip_l %} clip-l{% endif %}{% if r.bar.clip_r %} clip-r{% endif %}"
+               href="{% url 'operator' r.wo.pk %}" title="{{ r.tip }}" data-orders="{{ r.orders }}"
+               style="left:calc(var(--dw) * {{ r.bar.left }} + 1px);width:calc(var(--dw) * {{ r.bar.width }} - 2px)">
+              <span class="fill" style="width:{{ r.progress }}%"></span>
+              <span class="txt">{{ r.wo.number }} &middot; {{ r.wo.product.code }} &times;{{ r.wo.quantity }}{% if r.bar.no_start %} &middot; no start date{% endif %}</span>
+            </a>
+          </div>
+        </div>
+
+        {% elif r.type == "ship" %}
+        <div class="tl-row ship" data-order="{{ r.order.number }}">
+          <div class="tl-label">
+            <div class="l1"><a href="{% url 'customer_order' r.order.pk %}">{{ r.order.number }}</a><span class="pill {{ r.tone }}">{{ r.state }}</span></div>
+            <div class="l2">{{ r.order.customer }}</div>
+          </div>
+          <div class="tl-track">
+            {% if r.conn %}<div class="tl-conn{% if r.late %} bad{% endif %}" style="left:calc(var(--dw) * {{ r.conn.left }} + var(--dw) / 2);width:calc(var(--dw) * {{ r.conn.width }})"></div>{% endif %}
+            <a class="tl-ship {{ r.tone }}{% if r.label_left %} left{% endif %}" href="{% url 'customer_order' r.order.pk %}" title="{{ r.tip }}"
+               style="left:calc(var(--dw) * {{ r.idx }} + var(--dw) / 2 - 8px)"><i></i>
+              <span class="txt">{{ r.order.ship_date|date:"D j M" }}{% if r.linked %} &middot; WO {{ r.linked|join:", " }}{% endif %}{% if r.unlinked %} &middot; <span style="color:var(--bad)">{% if r.linked %}{{ r.unlinked }} line{{ r.unlinked|pluralize }} unplanned{% else %}no works order raised{% endif %}</span>{% endif %}</span>
+            </a>
+          </div>
+        </div>
+
+        {% else %}
+        <div class="tl-row"><div class="tl-empty">{{ r.text }}</div></div>
+        {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="tl-legend">
+    {% for key, label in status_filters %}{% if key != "open" and key != "all" %}<span class="st-{{ key }}"><i></i>{{ label }}</span>{% endif %}{% endfor %}
+    <span style="color:var(--bad)"><i style="background:none;border:2px solid currentColor;box-sizing:border-box"></i>Overdue</span>
+    <span style="color:var(--info)"><i class="dia"></i>Ship date</span>
+    <span style="color:var(--bad)"><i class="dia"></i>Late or at risk</span>
+    <span>Bar fill shows units recorded. Hover a ship date to highlight its works orders.</span>
+  </div>
+
+  {% if unscheduled %}
+  <div style="margin-top:14px"><strong style="font-size:13px">Not scheduled (no due date)</strong>
+    <div class="chips">{% for wo in unscheduled %}<a class="pill info" href="{% url 'operator' wo.pk %}" style="text-decoration:none">{{ wo.number }} &middot; {{ wo.product.code }} &times;{{ wo.quantity }}</a>{% endfor %}</div>
+  </div>
+  {% endif %}
+</div>
+
+<h2 style="margin:22px 0 10px;font-size:18px">Schedule data</h2>
+{% include "mes/_table.html" %}
+
+<script>
+(function () {
+  var scroll = document.getElementById("tl-scroll"), tl = document.getElementById("tl");
+  var line = tl.querySelector(".tl-today");
+  if (line) { scroll.scrollLeft = Math.max(0, line.offsetLeft - {{ label_px }} - 260); }
+  tl.querySelectorAll(".tl-row.ship").forEach(function (row) {
+    var id = row.dataset.order;
+    row.addEventListener("mouseenter", function () {
+      tl.classList.add("focus");
+      tl.querySelectorAll(".tl-bar").forEach(function (b) {
+        if ((" " + b.dataset.orders + " ").indexOf(" " + id + " ") >= 0) b.classList.add("hl");
+      });
+    });
+    row.addEventListener("mouseleave", function () {
+      tl.classList.remove("focus");
+      tl.querySelectorAll(".tl-bar.hl").forEach(function (b) { b.classList.remove("hl"); });
+    });
+  });
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,35 @@
+{% extends "mes/base.html" %}
+{% block title %}Machines · Open-MES{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Machines</h1>
+    <p class="sub">Shop-floor machines, their status and the product codes that depend on them.</p>
+  </div>
+</div>
+
+<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(190px,1fr))">
+  <div class="card"><div class="kpi">
+    <div class="kpi-icon tone-blue"><svg class="icon"><use href="#i-machine"/></svg></div>
+    <div><div class="label">Machines</div><div class="num">{{ total }}</div><div class="note">registered</div></div>
+  </div></div>
+  <div class="card"><div class="kpi">
+    <div class="kpi-icon tone-green"><svg class="icon"><use href="#i-check"/></svg></div>
+    <div><div class="label">Available</div><div class="num">{{ counts.available }}</div><div class="note">ready to use</div></div>
+  </div></div>
+  <div class="card"><div class="kpi">
+    <div class="kpi-icon tone-violet"><svg class="icon"><use href="#i-activity"/></svg></div>
+    <div><div class="label">In use</div><div class="num">{{ counts.in_use }}</div><div class="note">running a job</div></div>
+  </div></div>
+  <div class="card"><div class="kpi">
+    <div class="kpi-icon tone-amber"><svg class="icon"><use href="#i-gear"/></svg></div>
+    <div><div class="label">Maintenance</div><div class="num">{{ counts.maintenance }}</div><div class="note">planned downtime</div></div>
+  </div></div>
+  <div class="card"><div class="kpi">
+    <div class="kpi-icon tone-red"><svg class="icon"><use href="#i-alert"/></svg></div>
+    <div><div class="label">Down</div><div class="num">{{ counts.down }}</div><div class="note">needs attention</div></div>
+  </div></div>
+</div>
+
+{% include "mes/_table.html" %}
+{% endblock %}

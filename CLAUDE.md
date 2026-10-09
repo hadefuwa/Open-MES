@@ -1,0 +1,37 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## What this is
+
+Open-MES: an open-source Manufacturing Execution System layer (Django 5, SQLite, server-rendered templates, no login yet). Machine connectivity (PLC/SCADA/MQTT) is out of scope; events carry a `source` field as the hook for it. Plans: [Docs/Plans/PLAN.md](Docs/Plans/PLAN.md). Data-pack guide: [Docs/DATA-PACKS.md](Docs/DATA-PACKS.md).
+
+## Commands
+
+Python may not be on PATH; use the venv (`.venv/Scripts/python.exe`). Run from `app/`:
+
+- `manage.py migrate`, `manage.py seed [--pack NAME]` (RESETS the database and loads a data pack), `manage.py runserver`
+- `manage.py test mes` (all), `manage.py test mes.tests_bom.SomeTest.test_name` (single)
+- `manage.py import_test_reports <workbook>`
+- `MES_DB=<path>` points Django at a different SQLite file (used for parallel workers); `MES_DATA_PACK` and `MES_DATA_DIR` choose the default pack and where real workbooks live.
+
+## Architecture
+
+- **One catalogue table.** `Product` holds finished products, assemblies and components (`kind`, `category`, `range_name`, `unit_cost`, `rrp`, stock and supplier fields). `BomLine` links any item to any other, so everything cross-references. `RoutingStep` gives build time and the machine each step needs. Nearly every model has `created_at`/`updated_at` (`TimeStamped`).
+- **Derived figures are never stored.** `mes/costing.py` computes build time, BOM cost and total cost (BOM + build minutes x `MES_LABOUR_RATE_PER_HOUR`); `mes/bom.py` does explosions and where-used.
+- **Work orders** follow entered → allocated → issued → in_progress → qa → complete; each step is its own POST view in `views.py` and writes an `Event` (append-only audit log) via `_log`. `Unit` is a serialised unit; first-pass yield counts a unit as first-pass only if it was never retested.
+- **Feature areas** each live in their own files: `views_<area>.py`, `urls_<area>.py`, `templates/mes/<area>/`, `tests_<area>.py`. Areas: catalogue, bom, machines, planning, defects, data (a generic table browser). `mes/urls.py` includes each.
+- **Tables:** every list uses `mes/tables.py` `build_table` with `templates/mes/_table.html` (search, sort, pagination, `?format=csv`). `context.py` supplies the alert count and breadcrumbs.
+- **UI:** `base.html` is a sidebar shell with an inline SVG icon sprite and no external assets. The dashboard charts are hand-written SVG drawn by JS from `json_script` data built in `views.dashboard`.
+
+## Data packs
+
+The software is generic; datasets are **packs** in `app/mes/datapacks/` (plain-data modules, see `generic.py` and the contract in `datapacks/__init__.py`). `seed` validates the pack (`check_pack`), builds the catalogue (`mes/demo/builder.py`), creates the demo activity the pack asks for, runs the pack's optional `load_real_data(command)`, then classifies items from BOM structure (`mes/classify.py`) and works out costs. The `mes/demo/<area>.py` hooks read their inputs from `ctx.pack`, so they contain no business data.
+
+Importers: `mes/bom_import.py` (BOM explosion sheets, flat design BOMs, stock master), `mes/pricing.py` (price list, RRP-based cost calibration), `mes/importers.py` (test-report workbooks). They match sheets by header row and ignore unknown sheets.
+
+## Conventions
+
+- Keep the public tree free of real business data: product codes, staff names, customers, prices and source workbooks belong in private packs and git-ignored `data/` folders. `tests_datapacks.py` checks the generic pack stays clean.
+- Add a test for each new behaviour; the generic-pack seed test renders every page, so a broken template fails the suite.
+- No lint config or CI yet.

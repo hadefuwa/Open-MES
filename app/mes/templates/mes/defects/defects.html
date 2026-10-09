@@ -1,0 +1,54 @@
+{% extends "mes/base.html" %}
+{% block title %}Defects · Open-MES{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Defects</h1>
+    <p class="sub">Parts and units wasted on the shop floor, and what they cost. Record new defects from a work order.</p>
+  </div>
+</div>
+
+<div class="grid">
+  <div class="card span-3"><div class="kpi">
+    <div class="kpi-icon tone-amber"><svg class="icon"><use href="#i-alert"/></svg></div>
+    <div><div class="label">Defects this month</div><div class="num">{{ stats.month_count }}</div><div class="note">{{ stats.total_count }} recorded in total</div></div>
+  </div></div>
+  <div class="card span-3"><div class="kpi">
+    <div class="kpi-icon tone-red"><svg class="icon"><use href="#i-trend"/></svg></div>
+    <div><div class="label">Total waste cost</div><div class="num">&pound;{{ stats.total_cost|floatformat:0 }}</div><div class="note">&pound;{{ stats.month_cost|floatformat:2 }} this month</div></div>
+  </div></div>
+  <div class="card span-3"><div class="kpi">
+    <div class="kpi-icon tone-violet"><svg class="icon"><use href="#i-parts"/></svg></div>
+    <div><div class="label">Most defective part</div>
+      {% if stats.top_part %}<div class="num" style="font-size:20px"><a href="{{ stats.top_part.obj.get_absolute_url }}" style="color:inherit;text-decoration:none">{{ stats.top_part.label }}</a></div>
+      <div class="note">{{ stats.top_part.qty }} wasted · &pound;{{ stats.top_part.cost|floatformat:2 }}</div>
+      {% else %}<div class="num">&ndash;</div>{% endif %}</div>
+  </div></div>
+  <div class="card span-3"><div class="kpi">
+    <div class="kpi-icon tone-blue"><svg class="icon"><use href="#i-box"/></svg></div>
+    <div><div class="label">Most affected product</div>
+      {% if stats.top_product %}<div class="num" style="font-size:20px"><a href="{{ stats.top_product.obj.get_absolute_url }}" style="color:inherit;text-decoration:none">{{ stats.top_product.label }}</a></div>
+      <div class="note">{{ stats.top_product.qty }} wasted · &pound;{{ stats.top_product.cost|floatformat:2 }}</div>
+      {% else %}<div class="num">&ndash;</div>{% endif %}</div>
+  </div></div>
+</div>
+
+<div class="grid">
+  <div class="card span-6">
+    <div class="card-head"><h2>Waste cost by part</h2><span class="hint">Top components</span></div>
+    {% for p in parts %}
+    <div class="hbar"><a href="{{ p.obj.get_absolute_url }}" style="color:inherit;text-decoration:none" title="{{ p.obj.name }}"><span class="code">{{ p.label }}</span></a>
+      <div class="track"><div class="fill" style="width:{{ p.pct|floatformat:1 }}%"></div></div><b>&pound;{{ p.cost|floatformat:0 }}</b></div>
+    {% empty %}<div class="empty">No component defects yet.</div>{% endfor %}
+  </div>
+  <div class="card span-6">
+    <div class="card-head"><h2>Waste cost by cause</h2><span class="hint">Top descriptions</span></div>
+    {% for c in causes %}
+    <div class="hbar"><span>{{ c.label|truncatechars:34 }}</span>
+      <div class="track"><div class="fill" style="width:{{ c.pct|floatformat:1 }}%"></div></div><b>&pound;{{ c.cost|floatformat:0 }}</b></div>
+    {% empty %}<div class="empty">No defects yet.</div>{% endfor %}
+  </div>
+</div>
+
+{% include "mes/_table.html" %}
+{% endblock %}

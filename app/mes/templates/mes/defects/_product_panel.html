@@ -1,0 +1,29 @@
+{% load defect_tags %}{% defect_summary product as ds %}{% if ds.count %}
+<div class="card">
+  <div class="card-head">
+    <h2>Defects</h2>
+    <a href="{% url 'defects' %}?q={{ product.code|urlencode }}" style="font-weight:600;font-size:13px">View all defects &rarr;</a>
+  </div>
+  <p class="sub" style="margin:0 0 12px">
+    <b>{{ ds.count }}</b> record{{ ds.count|pluralize }} · <b>{{ ds.quantity }}</b> wasted · <b>&pound;{{ ds.cost|floatformat:2 }}</b> cost
+    {% if ds.built %}<span class="muted">· {{ ds.built }} while building this</span>{% endif %}
+    {% if ds.faulty %}<span class="muted">· {{ ds.faulty }} as the faulty part</span>{% endif %}
+  </p>
+  <div style="overflow-x:auto">
+  <table>
+    <tr><th>When</th><th>Part</th><th>Built in</th><th>Order</th><th>Description</th><th style="text-align:right">Qty</th><th style="text-align:right">Cost</th></tr>
+    {% for d in ds.rows %}
+    <tr>
+      <td>{{ d.occurred_at|date:"d M Y H:i" }}</td>
+      <td>{% if d.component %}<a href="{{ d.component.get_absolute_url }}"><span class="code">{{ d.component.code }}</span></a>{% else %}<span class="muted">Whole unit</span>{% endif %}</td>
+      <td><a href="{{ d.product.get_absolute_url }}"><span class="code">{{ d.product.code }}</span></a></td>
+      <td>{% if d.work_order %}<a href="{% url 'operator' d.work_order.pk %}">{{ d.work_order.number }}</a>{% endif %}{% if d.unit %} <a class="muted" href="{% url 'traceability' %}?serial={{ d.unit.serial|urlencode }}">{{ d.unit.serial }}</a>{% endif %}</td>
+      <td>{{ d.description|truncatechars:56 }}</td>
+      <td style="text-align:right">{{ d.quantity }}</td>
+      <td style="text-align:right">&pound;{{ d.cost|floatformat:2 }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  </div>
+</div>
+{% endif %}

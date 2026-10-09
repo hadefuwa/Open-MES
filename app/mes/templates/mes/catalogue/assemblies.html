@@ -1,0 +1,23 @@
+{% extends "mes/base.html" %}
+{% block title %}Assemblies · Open-MES{% endblock %}
+{% block content %}
+<div class="page-head"><div>
+  <h1>Assemblies</h1>
+  <p class="sub">Sub-assemblies built in house and used in finished products or other assemblies.</p>
+</div></div>
+<div class="grid">
+  <div class="card span-4"><div class="kpi">
+    <div class="kpi-icon tone-blue"><svg class="icon"><use href="#i-layers"/></svg></div>
+    <div><div class="label">Assemblies</div><div class="num">{{ stats.count }}</div><div class="note">in the catalogue</div></div>
+  </div></div>
+  <div class="card span-4"><div class="kpi">
+    <div class="kpi-icon tone-green"><svg class="icon"><use href="#i-trend"/></svg></div>
+    <div><div class="label">Average cost to manufacture</div><div class="num">£{{ stats.avg_cost|floatformat:2 }}</div><div class="note">BOM plus labour</div></div>
+  </div></div>
+  <div class="card span-4"><div class="kpi">
+    <div class="kpi-icon tone-violet"><svg class="icon"><use href="#i-parts"/></svg></div>
+    <div><div class="label">In use</div><div class="num">{{ stats.used }}</div><div class="note">used in at least one parent</div></div>
+  </div></div>
+</div>
+{% include "mes/_table.html" %}
+{% endblock %}

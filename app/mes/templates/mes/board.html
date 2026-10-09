@@ -1,0 +1,46 @@
+{% extends "mes/base.html" %}
+{% block content %}
+<div class="row" style="justify-content:space-between;align-items:flex-end;margin-bottom:18px">
+  <div>
+    <h1>Work order board</h1>
+    <p class="sub" style="margin:0">Every order from entry to completion.</p>
+  </div>
+  <form method="get">
+    <label>Workstation
+      <select name="station" onchange="this.form.submit()">
+        <option value="">All workstations</option>
+        {% for s in stations %}<option value="{{ s.id }}" {% if selected == s.id|stringformat:"s" %}selected{% endif %}>{{ s.name }}</option>{% endfor %}
+      </select>
+    </label>
+  </form>
+</div>
+<div class="board">
+{% for value, label, orders, hidden in columns %}
+  <section class="st-{{ value }}">
+    <div class="col-head"><h2>{{ label }}</h2><span class="count-pill">{{ orders|length|add:hidden }}</span></div>
+    {% for o in orders %}
+      <a href="{% url 'operator' o.pk %}" class="card-link">
+        <div class="card">
+          <div class="row" style="justify-content:space-between;align-items:center;gap:6px">
+            <span class="order-no" style="color:var(--ink)">{{ o.number }}</span>
+            {% if o.is_overdue %}<span class="pill bad">Overdue</span>{% elif o.due_soon %}<span class="pill warn">Due soon</span>{% endif %}
+          </div>
+          <div style="margin-top:6px"><span class="code">{{ o.product.code }}</span></div>
+          <div style="margin-top:4px;color:var(--ink);font-size:15px">{{ o.product.name }} &times; {{ o.quantity }}</div>
+          <div class="meta">
+            <span>{{ o.workstation|default:"No workstation" }}</span>
+            {% if o.due_date %}<span>Due {{ o.due_date|date:"d M" }}</span>{% endif %}
+            <span>{{ o.technician|default:"Unassigned" }}</span>
+            {% if o.est_minutes %}<span>{{ o.est_minutes }} min</span>{% endif %}
+            {% if o.printed %}<span>Printed</span>{% endif %}
+          </div>
+          <div class="bar-track"><div class="bar-fill" style="width:{{ o.progress_pct }}%"></div></div>
+          <div class="muted" style="margin-top:4px;font-size:12px">{{ o.units_recorded }} / {{ o.quantity }} units recorded</div>
+        </div>
+      </a>
+    {% empty %}<p class="muted" style="padding:0 4px">Nothing here.</p>{% endfor %}
+    {% if hidden %}<p class="muted" style="padding:0 4px">+ {{ hidden }} earlier completed orders</p>{% endif %}
+  </section>
+{% endfor %}
+</div>
+{% endblock %}

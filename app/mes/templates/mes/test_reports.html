@@ -1,0 +1,56 @@
+{% extends "mes/base.html" %}
+{% block title %}Test reports · Open-MES{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Test reports</h1>
+    <p class="sub">Electrical test results for every built unit.</p>
+  </div>
+</div>
+
+<div class="grid">
+  <div class="card span-4"><div class="kpi">
+    <div class="kpi-icon tone-blue"><svg class="icon"><use href="#i-shield"/></svg></div>
+    <div><div class="label">Reports</div><div class="num">{{ stats.count }}</div><div class="note">units tested</div></div>
+  </div></div>
+  <div class="card span-4"><div class="kpi">
+    <div class="kpi-icon tone-green"><svg class="icon"><use href="#i-check"/></svg></div>
+    <div><div class="label">Pass rate</div><div class="num">{% if stats.rate is None %}&ndash;{% else %}{{ stats.rate }}%{% endif %}</div><div class="note">{{ stats.passed }} passed</div></div>
+  </div></div>
+  <div class="card span-4"><div class="kpi">
+    <div class="kpi-icon tone-red"><svg class="icon"><use href="#i-x"/></svg></div>
+    <div><div class="label">Failed</div><div class="num">{{ stats.failed }}</div><div class="note">need rework</div></div>
+  </div></div>
+</div>
+
+<div class="card">
+  <form method="get" class="row" style="margin-bottom:14px">
+    <label style="flex:1;min-width:220px">Search<input name="q" value="{{ q }}" placeholder="Serial, report ID, product or tester"></label>
+    <label>Result
+      <select name="result" onchange="this.form.submit()">
+        <option value="">All</option>
+        <option value="PASS" {% if result == "PASS" %}selected{% endif %}>Pass</option>
+        <option value="FAIL" {% if result == "FAIL" %}selected{% endif %}>Fail</option>
+      </select>
+    </label>
+    <button>Filter</button>
+  </form>
+  <div style="overflow-x:auto">
+  <table>
+    <tr><th>Report</th><th>Date</th><th>Product</th><th>Serial</th><th>Tested by</th><th>Steps</th><th>Result</th><th>Comments</th></tr>
+    {% for r in reports %}
+    <tr>
+      <td><a href="{% url 'test_report' r.pk %}" style="font-weight:700;text-decoration:none">{{ r.report_id }}</a></td>
+      <td>{{ r.test_date|date:"d M Y" }}</td>
+      <td><a href="{{ r.product.get_absolute_url }}" class="code" style="text-decoration:none">{{ r.product.code }}</a> <span class="muted">{{ r.product.name }}</span></td>
+      <td><a href="{% url 'traceability' %}?serial={{ r.serial|urlencode }}" style="font-weight:700;text-decoration:none">{{ r.serial }}</a></td>
+      <td>{% if r.technician %}<a href="{% url 'my_jobs' %}?technician={{ r.technician.pk }}" style="text-decoration:none">{{ r.tester }}</a>{% else %}{{ r.tester }}{% endif %}</td>
+      <td>{{ r.passed_steps }} / {{ r.total }}</td>
+      <td><span class="pill {% if r.passed %}ok{% else %}bad{% endif %}">{{ r.overall_result }}</span></td>
+      <td class="muted">{{ r.comments|truncatechars:48 }}</td>
+    </tr>
+    {% empty %}<tr><td colspan="8" class="empty">No test reports match.</td></tr>{% endfor %}
+  </table>
+  </div>
+</div>
+{% endblock %}

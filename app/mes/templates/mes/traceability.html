@@ -1,0 +1,36 @@
+{% extends "mes/base.html" %}
+{% block title %}Traceability · Open-MES{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Traceability</h1>
+    <p class="sub">Find any unit by serial number and see its full build history.</p>
+  </div>
+</div>
+<div class="card">
+  <form method="get" class="row">
+    <label>Serial number<input name="serial" value="{{ query }}" placeholder="e.g. SA2001-0001" required></label>
+    <button>Look up</button>
+  </form>
+</div>
+{% if query and not unit %}<div class="card"><p class="muted" style="margin:0">No unit with serial &ldquo;{{ query }}&rdquo;.</p></div>{% endif %}
+{% if unit %}
+<div class="card">
+  <div class="row" style="justify-content:space-between;align-items:center">
+    <div><span class="order-no">{{ unit.serial }}</span>
+      <span class="pill {% if unit.result == 'pass' %}ok{% elif unit.result == 'rework' %}warn{% elif unit.result == 'scrap' %}bad{% endif %}" style="margin-left:6px">{{ unit.get_result_display }}</span>
+      <span class="pill {% if unit.first_pass %}ok{% else %}warn{% endif %}">{% if unit.first_pass %}First-pass{% else %}Reworked{% endif %}</span></div>
+  </div>
+  <p class="muted" style="margin:6px 0 12px"><a href="{{ unit.work_order.product.get_absolute_url }}" class="code" style="text-decoration:none">{{ unit.work_order.product.code }}</a> {{ unit.work_order.product.name }}
+    · Work order <a href="{% url 'operator' unit.work_order.pk %}">{{ unit.work_order.number }}</a>{% if unit.reason %} · {{ unit.reason }}{% endif %}</p>
+  {% for tr in unit.test_reports.all %}
+  <p style="margin:0 0 12px"><a href="{% url 'test_report' tr.pk %}" style="font-weight:700">View test report {{ tr.report_id }} &rarr;</a>
+    <span class="pill {% if tr.passed %}ok{% else %}bad{% endif %}">{{ tr.overall_result }}</span></p>
+  {% endfor %}
+  <table>
+    <tr><th>When</th><th>Action</th><th>Detail</th><th>Source</th></tr>
+    {% for e in history %}<tr><td>{{ e.timestamp|date:"d M H:i" }}</td><td>{{ e.action }}</td><td class="muted">{{ e.detail }}</td><td><span class="pill info">{{ e.source }}</span></td></tr>{% endfor %}
+  </table>
+</div>
+{% endif %}
+{% endblock %}

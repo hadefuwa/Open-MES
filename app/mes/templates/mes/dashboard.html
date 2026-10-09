@@ -1,0 +1,207 @@
+{% extends "mes/base.html" %}
+{% block title %}Dashboard · Open-MES{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Dashboard</h1>
+    <p class="sub">Production, quality and workload at a glance.</p>
+  </div>
+  <a href="{% url 'board' %}"><button class="small">Open work order board</button></a>
+</div>
+
+<div class="grid">
+  <div class="card span-3"><div class="kpi">
+    <div class="kpi-icon tone-blue"><svg class="icon"><use href="#i-layers"/></svg></div>
+    <div><div class="label">Open orders</div><div class="num">{{ kpis.open }}</div><div class="note">{{ kpis.in_qa }} awaiting QA</div></div>
+  </div></div>
+  <div class="card span-3"><div class="kpi">
+    <div class="kpi-icon tone-green"><svg class="icon"><use href="#i-check"/></svg></div>
+    <div><div class="label">First-pass yield</div><div class="num">{% if kpis.fpy is None %}&ndash;{% else %}{{ kpis.fpy }}%{% endif %}</div><div class="note">{{ kpis.tested }} units tested</div></div>
+  </div></div>
+  <div class="card span-3"><div class="kpi">
+    <div class="kpi-icon tone-red"><svg class="icon"><use href="#i-clock"/></svg></div>
+    <div><div class="label">Overdue</div><div class="num">{{ kpis.overdue }}</div><div class="note">orders past due date</div></div>
+  </div></div>
+  <a class="card span-3" href="{% url 'defects' %}" style="display:block;text-decoration:none;color:inherit"><div class="kpi">
+    <div class="kpi-icon tone-amber"><svg class="icon"><use href="#i-alert"/></svg></div>
+    <div><div class="label">Defects this month</div><div class="num">{{ kpis.defects.count }}</div><div class="note">&pound;{{ kpis.defects.cost|floatformat:2 }} waste cost</div></div>
+  </div></a>
+</div>
+
+<div class="grid">
+  <div class="card span-8">
+    <div class="card-head"><h2>Units produced per day</h2><span class="hint">Last 14 days</span></div>
+    <div class="chart" id="chart-units"></div>
+  </div>
+  <div class="card span-4">
+    <div class="card-head"><h2>Orders by status</h2></div>
+    <div class="donut-wrap"><div class="chart" id="chart-status"></div><div class="legend" id="legend-status"></div></div>
+  </div>
+</div>
+
+<div class="grid">
+  <div class="card span-8">
+    <div class="card-head"><h2>First-pass yield trend</h2><span class="hint">% of units passing first time</span></div>
+    <div class="chart" id="chart-fpy"></div>
+  </div>
+  <div class="card span-4" id="alerts">
+    <div class="card-head"><h2>Alerts</h2><span class="hint">{{ alerts|length }} active</span></div>
+    {% for level, title, text, o in alerts %}
+      <a class="alert" href="{% url 'operator' o.pk %}">
+        <div class="kpi-icon {% if level == 'bad' %}tone-red{% elif level == 'warn' %}tone-amber{% else %}tone-violet{% endif %}">
+          <svg class="icon"><use href="{% if level == 'info' %}#i-check{% else %}#i-alert{% endif %}"/></svg></div>
+        <div><b>{{ title }}</b><span>{{ text }}</span></div>
+      </a>
+    {% empty %}<div class="empty">No alerts. Everything is on track.</div>{% endfor %}
+  </div>
+</div>
+
+<div class="grid">
+  <div class="card span-4">
+    <div class="card-head"><h2>Top rework &amp; scrap causes</h2></div>
+    <div id="chart-causes"></div>
+  </div>
+  <div class="card span-4">
+    <div class="card-head"><h2>Technician workload</h2><span class="hint">Estimated minutes, live orders</span></div>
+    <div id="chart-workload"></div>
+  </div>
+  <div class="card span-4">
+    <div class="card-head"><h2>Recent activity</h2></div>
+    <ul class="feed">
+      {% for e in recent %}
+      <li>
+        <span class="kpi-icon tone-blue" style="width:30px;height:30px;border-radius:8px"><svg class="icon" style="width:15px;height:15px"><use href="#i-activity"/></svg></span>
+        <div><a href="{% url 'operator' e.work_order.pk %}" style="font-weight:600;text-decoration:none">{{ e.work_order.number }}</a> {{ e.action }}{% if e.detail %} <span class="muted">· {{ e.detail }}</span>{% endif %}</div>
+        <span class="when">{{ e.timestamp|date:"d M H:i" }}</span>
+      </li>
+      {% empty %}<li class="empty">No activity yet.</li>{% endfor %}
+    </ul>
+  </div>
+</div>
+
+<div class="grid">
+  <div class="card span-8">
+    <div class="card-head"><h2>Cost of defects by week</h2><span class="hint">Last 8 weeks, &pound; wasted</span></div>
+    <div class="chart" id="chart-defects"></div>
+  </div>
+  <div class="card span-4">
+    <div class="card-head"><h2>Latest defects</h2><a href="{% url 'defects' %}" class="hint">View all</a></div>
+    <ul class="feed">
+      {% for d in latest_defects %}
+      <li>
+        <span class="kpi-icon tone-amber" style="width:30px;height:30px;border-radius:8px"><svg class="icon" style="width:15px;height:15px"><use href="#i-alert"/></svg></span>
+        <div><b style="font-weight:600">{{ d.component.code|default:"Whole unit" }}</b> <span class="muted">on {{ d.product.code }} &middot; {{ d.description|truncatechars:30 }}</span></div>
+        <span class="when">&pound;{{ d.cost|floatformat:2 }}</span>
+      </li>
+      {% empty %}<li class="empty">No defects recorded.</li>{% endfor %}
+    </ul>
+  </div>
+</div>
+
+{{ chart_data|json_script:"chart-data" }}
+<script>
+(function () {
+  var D = JSON.parse(document.getElementById("chart-data").textContent);
+  var COLORS = {entered:"var(--s-entered)", allocated:"var(--s-allocated)", issued:"var(--s-issued)",
+                in_progress:"var(--s-in_progress)", qa:"var(--s-qa)", complete:"var(--s-complete)"};
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) { return String(s).replace(/[&<>"]/g, function (c) { return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); };
+
+  // ---- column chart: units per day
+  (function () {
+    var d = D.unitsPerDay, W = 720, H = 370, L = 34, B = 28, T = 12, R = 8;
+    var max = Math.max(4, Math.ceil(Math.max.apply(null, d.map(function (x) { return x.value; })) / 4) * 4);
+    var cw = (W - L - R) / d.length, bw = Math.min(30, cw * 0.62), out = "";
+    for (var i = 0; i <= 4; i++) {
+      var y = T + (H - T - B) * i / 4;
+      out += '<line class="grid-line" x1="' + L + '" x2="' + (W - R) + '" y1="' + y + '" y2="' + y + '"/>' +
+             '<text x="' + (L - 8) + '" y="' + (y + 4) + '" text-anchor="end">' + Math.round(max - max * i / 4) + '</text>';
+    }
+    d.forEach(function (p, i) {
+      var h = (H - T - B) * p.value / max, x = L + cw * i + (cw - bw) / 2, y = H - B - h;
+      out += '<rect x="' + x + '" y="' + y + '" width="' + bw + '" height="' + Math.max(h, p.value ? 2 : 0) + '" rx="5" fill="url(#g-units)"><title>' + esc(p.label) + ': ' + p.value + ' units</title></rect>';
+      if (i % 2 === 0 || d.length < 8) out += '<text x="' + (x + bw / 2) + '" y="' + (H - 8) + '" text-anchor="middle">' + esc(p.label) + '</text>';
+    });
+    $("chart-units").innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '"><defs><linearGradient id="g-units" x1="0" y1="0" x2="0" y2="1">' +
+      '<stop offset="0" stop-color="var(--accent-2)"/><stop offset="1" stop-color="var(--accent)"/></linearGradient></defs>' + out + '</svg>';
+  })();
+
+  // ---- donut: orders by status
+  (function () {
+    var d = D.status, total = d.reduce(function (s, x) { return s + x.value; }, 0), r = 62, c = 2 * Math.PI * r, off = 0, out = "";
+    d.forEach(function (p) {
+      if (!p.value) return;
+      var len = c * p.value / total;
+      out += '<circle cx="90" cy="90" r="' + r + '" fill="none" stroke="' + COLORS[p.key] + '" stroke-width="22" stroke-dasharray="' + len + ' ' + (c - len) +
+             '" stroke-dashoffset="' + (-off) + '" transform="rotate(-90 90 90)"><title>' + esc(p.label) + ': ' + p.value + '</title></circle>';
+      off += len;
+    });
+    out += '<text x="90" y="88" text-anchor="middle" style="font-size:30px;font-weight:800;fill:var(--ink)">' + total + '</text>' +
+           '<text x="90" y="108" text-anchor="middle">orders</text>';
+    $("chart-status").innerHTML = '<svg viewBox="0 0 180 180">' + out + '</svg>';
+    $("legend-status").innerHTML = d.map(function (p) {
+      return '<div><i style="background:' + COLORS[p.key] + '"></i>' + esc(p.label) + '<b>' + p.value + '</b></div>';
+    }).join("");
+  })();
+
+  // ---- line + area: first-pass yield
+  (function () {
+    var d = D.fpyPerDay, W = 720, H = 300, L = 40, B = 28, T = 14, R = 12;
+    var pts = [], out = "";
+    for (var i = 0; i <= 4; i++) {
+      var y = T + (H - T - B) * i / 4;
+      out += '<line class="grid-line" x1="' + L + '" x2="' + (W - R) + '" y1="' + y + '" y2="' + y + '"/>' +
+             '<text x="' + (L - 8) + '" y="' + (y + 4) + '" text-anchor="end">' + (100 - 25 * i) + '%</text>';
+    }
+    var step = (W - L - R) / Math.max(1, d.length - 1);
+    d.forEach(function (p, i) {
+      var x = L + step * i;
+      if (p.value !== null) pts.push([x, T + (H - T - B) * (1 - p.value / 100), p]);
+      if (i % 2 === 0) out += '<text x="' + x + '" y="' + (H - 8) + '" text-anchor="middle">' + esc(p.label) + '</text>';
+    });
+    if (pts.length > 1) {
+      var line = pts.map(function (p, i) { return (i ? "L" : "M") + p[0] + " " + p[1]; }).join(" ");
+      out += '<path d="' + line + ' L' + pts[pts.length - 1][0] + " " + (H - B) + " L" + pts[0][0] + " " + (H - B) + ' Z" fill="url(#g-fpy)"/>' +
+             '<path d="' + line + '" fill="none" stroke="var(--ok)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>';
+    }
+    pts.forEach(function (p) {
+      out += '<circle cx="' + p[0] + '" cy="' + p[1] + '" r="4.5" fill="var(--card)" stroke="var(--ok)" stroke-width="2.5"><title>' + esc(p[2].label) + ': ' + p[2].value + '%</title></circle>';
+    });
+    $("chart-fpy").innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '"><defs><linearGradient id="g-fpy" x1="0" y1="0" x2="0" y2="1">' +
+      '<stop offset="0" stop-color="var(--ok)" stop-opacity=".28"/><stop offset="1" stop-color="var(--ok)" stop-opacity="0"/></linearGradient></defs>' + out + '</svg>';
+  })();
+
+  // ---- column chart: defect cost per week
+  (function () {
+    var d = D.defectWeeks, W = 720, H = 300, L = 48, B = 28, T = 12, R = 8;
+    var peak = Math.max.apply(null, d.map(function (x) { return x.value; }));
+    var step = peak > 400 ? 200 : peak > 160 ? 100 : peak > 80 ? 40 : 20;
+    var max = Math.max(step * 4, Math.ceil(peak / (step * 4)) * step * 4), out = "";
+    var cw = (W - L - R) / d.length, bw = Math.min(46, cw * 0.62);
+    for (var i = 0; i <= 4; i++) {
+      var y = T + (H - T - B) * i / 4;
+      out += '<line class="grid-line" x1="' + L + '" x2="' + (W - R) + '" y1="' + y + '" y2="' + y + '"/>' +
+             '<text x="' + (L - 8) + '" y="' + (y + 4) + '" text-anchor="end">&pound;' + Math.round(max - max * i / 4) + '</text>';
+    }
+    d.forEach(function (p, i) {
+      var h = (H - T - B) * p.value / max, x = L + cw * i + (cw - bw) / 2, y = H - B - h;
+      out += '<rect x="' + x + '" y="' + y + '" width="' + bw + '" height="' + Math.max(h, p.value ? 2 : 0) + '" rx="5" fill="var(--warn)"><title>w/c ' + esc(p.label) + ': &pound;' + p.value.toFixed(2) + '</title></rect>' +
+             '<text x="' + (x + bw / 2) + '" y="' + (H - 8) + '" text-anchor="middle">' + esc(p.label) + '</text>';
+    });
+    $("chart-defects").innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '">' + out + '</svg>';
+  })();
+
+  // ---- horizontal bars
+  function hbars(el, data, unit) {
+    if (!data.length) { el.innerHTML = '<div class="empty">No data yet.</div>'; return; }
+    var max = Math.max.apply(null, data.map(function (x) { return x.value; })) || 1;
+    el.innerHTML = data.map(function (p) {
+      return '<div class="hbar"><span>' + esc(p.label) + '</span><div class="track"><div class="fill" style="width:' + (100 * p.value / max) +
+             '%"></div></div><b>' + p.value + (unit || "") + '</b></div>';
+    }).join("");
+  }
+  hbars($("chart-causes"), D.causes);
+  hbars($("chart-workload"), D.workload, "m");
+})();
+</script>
+{% endblock %}

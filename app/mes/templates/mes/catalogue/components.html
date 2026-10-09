@@ -1,0 +1,34 @@
+{% extends "mes/base.html" %}
+{% block title %}Components · Open-MES{% endblock %}
+{% block content %}
+<div class="page-head"><div>
+  <h1>Components</h1>
+  <p class="sub">Purchased parts used across bills of materials.</p>
+</div></div>
+<div class="grid">
+  <div class="card span-3"><div class="kpi">
+    <div class="kpi-icon tone-blue"><svg class="icon"><use href="#i-parts"/></svg></div>
+    <div><div class="label">Components</div><div class="num">{{ stats.count }}</div><div class="note">{% if selected %}in category {{ selected }}{% else %}all categories{% endif %}</div></div>
+  </div></div>
+  <div class="card span-3"><div class="kpi">
+    <div class="kpi-icon tone-violet"><svg class="icon"><use href="#i-layers"/></svg></div>
+    <div><div class="label">Used in a BOM</div><div class="num">{{ stats.used }}</div><div class="note">parts on at least one bill</div></div>
+  </div></div>
+  <div class="card span-3"><div class="kpi">
+    <div class="kpi-icon tone-green"><svg class="icon"><use href="#i-trend"/></svg></div>
+    <div><div class="label">Average unit cost</div><div class="num">£{{ stats.avg_cost|floatformat:2 }}</div><div class="note">purchase cost</div></div>
+  </div></div>
+  <div class="card span-3"><div class="kpi">
+    <div class="kpi-icon tone-red"><svg class="icon"><use href="#i-alert"/></svg></div>
+    <div><div class="label">Low stock</div><div class="num">{{ stats.low_stock }}</div><div class="note">at or below re-order level</div></div>
+  </div></div>
+</div>
+<div class="card">
+  <div class="row" style="align-items:center">
+    <span class="muted">Category</span>
+    <a href="?" class="pill {% if not selected %}info{% endif %}" style="text-decoration:none">All ({{ all_count }})</a>
+    {% for c in chips %}<a href="?category={{ c.category|urlencode }}" class="pill {% if c.active %}info{% endif %}" style="text-decoration:none">{{ c.category|default:"None" }} ({{ c.n }})</a>{% endfor %}
+  </div>
+</div>
+{% include "mes/_table.html" %}
+{% endblock %}

@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+app/db.sqlite3
+
+# Real source data (BOMs, stock, price lists, ERP exports) must never reach a public repository
+data/
+Docs/Examples/
+*.xlsx
+*.xlsm
+*.csv

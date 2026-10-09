@@ -1,0 +1,44 @@
+{% extends "mes/base.html" %}
+{% block title %}Data browser · Open-MES{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Data browser</h1>
+    <p class="sub">Every table in the database, how they connect, and a CSV export of each.</p>
+  </div>
+</div>
+
+<div class="grid">
+  <div class="card span-4"><div class="kpi">
+    <div class="kpi-icon tone-blue"><svg class="icon"><use href="#i-database"/></svg></div>
+    <div><div class="label">Tables</div><div class="num">{{ tables|length }}</div><div class="note">in the relational model</div></div>
+  </div></div>
+  <div class="card span-4"><div class="kpi">
+    <div class="kpi-icon tone-green"><svg class="icon"><use href="#i-layers"/></svg></div>
+    <div><div class="label">Rows</div><div class="num">{{ total_rows }}</div><div class="note">across all tables</div></div>
+  </div></div>
+  <div class="card span-4"><div class="kpi">
+    <div class="kpi-icon tone-violet"><svg class="icon"><use href="#i-trend"/></svg></div>
+    <div><div class="label">Relationships</div><div class="num">{{ total_links }}</div><div class="note">foreign keys linking tables</div></div>
+  </div></div>
+</div>
+
+<div class="card">
+  <div style="overflow-x:auto">
+  <table>
+    <tr><th>Table</th><th>What it holds</th><th style="text-align:right">Rows</th><th style="text-align:right">Fields</th><th>Links to</th><th>Last change</th><th></th></tr>
+    {% for t in tables %}
+    <tr>
+      <td><a href="{% url 'data_table' t.name %}" style="font-weight:700;text-decoration:none">{{ t.label }}</a></td>
+      <td class="muted">{{ t.description }}</td>
+      <td style="text-align:right"><strong>{{ t.rows }}</strong></td>
+      <td style="text-align:right">{{ t.fields }}</td>
+      <td>{% for r in t.relations %}<a href="{% url 'data_table' r.name %}" class="pill info" style="text-decoration:none;margin:0 4px 4px 0" title="via {{ r.field }}">{{ r.name }}</a>{% empty %}<span class="muted">&ndash;</span>{% endfor %}</td>
+      <td class="muted">{% if t.last %}{{ t.last|date:"d M Y H:i" }}{% else %}&ndash;{% endif %}</td>
+      <td style="white-space:nowrap"><a href="{% url 'data_table' t.name %}?format=csv"><button class="small" type="button">CSV</button></a></td>
+    </tr>
+    {% endfor %}
+  </table>
+  </div>
+</div>
+{% endblock %}

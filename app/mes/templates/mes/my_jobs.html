@@ -1,0 +1,41 @@
+{% extends "mes/base.html" %}
+{% block content %}
+<h1>My jobs</h1>
+<p class="sub">Issued, in-progress and QA orders for a production technician.</p>
+<form method="get" style="margin-bottom:18px">
+  <label style="max-width:280px">Production technician
+    <select name="technician" onchange="this.form.submit()">
+      <option value="">Choose technician&hellip;</option>
+      {% for o in technicians %}<option value="{{ o.id }}" {% if selected == o.id|stringformat:"s" %}selected{% endif %}>{{ o.name }}</option>{% endfor %}
+    </select>
+  </label>
+</form>
+{% if selected %}
+  {% if orders %}
+  <div class="grid" style="max-width:640px">
+    <div class="card span-6"><div class="kpi"><div class="kpi-icon tone-blue"><svg class="icon"><use href="#i-jobs"/></svg></div>
+      <div><div class="label">Jobs</div><div class="num">{{ orders|length }}</div></div></div></div>
+    <div class="card span-6"><div class="kpi"><div class="kpi-icon tone-violet"><svg class="icon"><use href="#i-clock"/></svg></div>
+      <div><div class="label">Est. workload</div><div class="num">{{ total_minutes }}<span style="font-size:15px;font-weight:600"> min</span></div></div></div></div>
+  </div>
+  {% endif %}
+  <div style="max-width:640px">
+  {% for o in orders %}
+    <a href="{% url 'operator' o.pk %}" class="card-link">
+      <div class="card">
+        <div class="row" style="justify-content:space-between;align-items:center">
+          <span class="order-no" style="color:var(--ink)">{{ o.number }}</span>
+          <span class="badge st-{{ o.status }}">{{ o.get_status_display }}</span>
+        </div>
+        <div style="margin-top:6px"><span class="code">{{ o.product.code }}</span> {{ o.product.name }} &times; {{ o.quantity }}</div>
+        <div class="meta">
+          <span>{{ o.workstation|default:"No workstation" }}</span>
+          {% if o.due_date %}<span>Due {{ o.due_date|date:"d M" }}</span>{% endif %}
+          {% if o.est_minutes %}<span>{{ o.est_minutes }} min</span>{% endif %}
+        </div>
+      </div>
+    </a>
+  {% empty %}<p class="muted">No jobs issued to this technician.</p>{% endfor %}
+  </div>
+{% endif %}
+{% endblock %}

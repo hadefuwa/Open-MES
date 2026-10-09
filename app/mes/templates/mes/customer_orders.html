@@ -1,0 +1,21 @@
+{% extends "mes/base.html" %}
+{% block content %}
+<h1>Customer orders</h1>
+<p class="sub">Orders to fulfil. Raise a works order from any line.</p>
+<div style="max-width:760px">
+{% for o in orders %}
+  <a href="{% url 'customer_order' o.pk %}" class="card-link">
+    <div class="card">
+      <div class="row" style="justify-content:space-between;align-items:center">
+        <span class="order-no" style="color:var(--ink)">Order {{ o.number }}</span>
+        <span class="muted">{{ o.order_date|date:"d M Y" }}</span>
+      </div>
+      <div style="margin-top:4px;color:var(--ink)">{{ o.customer }}{% if o.customer_ref %} <span class="muted">· {{ o.customer_ref }}</span>{% endif %}</div>
+      <div class="meta">
+        {% for l in o.lines.all %}<span><span class="code">{{ l.product.code }}</span> &times; {{ l.quantity }}{% if l.work_order %} &#10003;{% endif %}</span>{% endfor %}
+      </div>
+    </div>
+  </a>
+{% empty %}<p class="muted">No customer orders yet. Run the seed command.</p>{% endfor %}
+</div>
+{% endblock %}

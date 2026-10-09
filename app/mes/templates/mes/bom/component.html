@@ -1,0 +1,62 @@
+{% extends "mes/base.html" %}
+{% block title %}{{ product.code }} · Open-MES{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1><span class="code">{{ product.code }}</span> {{ product.name }}</h1>
+    <p class="sub"><span class="pill info">{{ product.category|default:"-" }}</span> {{ product.get_kind_display }}
+      &middot; unit cost <strong>{% if product.unit_cost is not None %}&pound;{{ product.unit_cost|floatformat:"-4" }}{% else %}&ndash;{% endif %}</strong></p>
+  </div>
+</div>
+
+<div class="grid">
+  <div class="card span-4"><div class="kpi">
+    <div class="kpi-icon tone-blue"><svg class="icon"><use href="#i-parts"/></svg></div>
+    <div><div class="label">Direct parents</div><div class="num">{{ direct|length }}</div><div class="note">BOMs listing it</div></div>
+  </div></div>
+  <div class="card span-4"><div class="kpi">
+    <div class="kpi-icon tone-green"><svg class="icon"><use href="#i-box"/></svg></div>
+    <div><div class="label">Finished products</div><div class="num">{{ finished_count }}</div><div class="note">via any path</div></div>
+  </div></div>
+  <div class="card span-4"><div class="kpi">
+    <div class="kpi-icon tone-violet"><svg class="icon"><use href="#i-layers"/></svg></div>
+    <div><div class="label">Total ancestors</div><div class="num">{{ ancestor_count }}</div><div class="note">assemblies and products</div></div>
+  </div></div>
+</div>
+
+<div class="card" style="margin-top:14px">
+  <div class="card-head"><h2>Information</h2></div>
+  <div class="row" style="gap:36px">
+    <div><div class="muted">Code</div><strong>{{ product.code }}</strong></div>
+    <div><div class="muted">Category</div><strong>{{ product.category|default:"-" }}</strong></div>
+    <div><div class="muted">Type</div><strong>{{ product.get_kind_display }}</strong></div>
+    <div><div class="muted">Supplier</div><strong>{{ product.supplier_code|default:"-" }}</strong>{% if product.supplier_part_no %} <span class="muted">· part {{ product.supplier_part_no }}</span>{% endif %}</div>
+    <div><div class="muted">Free stock</div><strong>{% if product.free_stock is None %}-{% else %}{{ product.free_stock }}{% endif %}</strong>{% if product.low_stock %} <span class="pill bad">Low</span>{% endif %}</div>
+    <div><div class="muted">Re-order level</div><strong>{% if product.reorder_level is None %}-{% else %}{{ product.reorder_level }}{% endif %}</strong></div>
+    {% if product.rrp %}<div><div class="muted">Spare RRP</div><strong>£{{ product.rrp|floatformat:2 }}</strong></div>{% endif %}
+    <div><div class="muted">Created</div><strong>{{ product.created_at|date:"d M Y H:i" }}</strong></div>
+    <div><div class="muted">Updated</div><strong>{{ product.updated_at|date:"d M Y H:i" }}</strong></div>
+  </div>
+</div>
+
+<div class="card" style="margin-top:14px">
+  <div class="card-head"><h2>Where used: direct parents</h2><span class="hint">{{ direct|length }}</span></div>
+  <div style="overflow-x:auto"><table>
+    <tr><th>Parent</th><th>Name</th><th>Type</th><th style="text-align:right">Qty per parent</th><th>Line updated</th></tr>
+    {% for line in direct %}
+    <tr>
+      <td><a href="{{ line.parent.get_absolute_url }}" style="text-decoration:none;font-weight:700"><span class="code">{{ line.parent.code }}</span></a></td>
+      <td>{{ line.parent.name }}</td>
+      <td><span class="pill {% if line.parent.kind == 'finished' %}ok{% else %}info{% endif %}">{{ line.parent.get_kind_display }}</span></td>
+      <td style="text-align:right">{{ line.quantity|floatformat:"-2" }}</td>
+      <td class="muted">{{ line.updated_at|date:"d M Y H:i" }}</td>
+    </tr>
+    {% empty %}<tr><td colspan="5" class="empty">Not used in any bill of materials.</td></tr>{% endfor %}
+  </table></div>
+</div>
+
+<h2 style="margin:22px 0 10px">Where used: every assembly and finished product</h2>
+{% include "mes/_table.html" %}
+
+{% include "mes/defects/_product_panel.html" with product=product %}
+{% endblock %}

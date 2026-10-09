@@ -1,0 +1,49 @@
+{# Reusable data table. Expects `table` from mes.tables.build_table. #}
+<div class="card">
+  <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:12px">
+    <form method="get" class="row" style="align-items:center">
+      {% for k, v in request.GET.items %}{% if k != "q" and k != "page" and k != "format" %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endif %}{% endfor %}
+      <input name="q" value="{{ table.q }}" placeholder="Search this table&hellip;" style="min-width:240px" aria-label="Search">
+      <button class="small">Search</button>
+      {% if table.q %}<a href="?" style="font-weight:600;font-size:14px">Clear</a>{% endif %}
+    </form>
+    <div class="row" style="align-items:center">
+      <span class="muted">{{ table.total }} row{{ table.total|pluralize }}</span>
+      <a href="{{ table.csv_url }}"><button class="small" type="button">Export CSV</button></a>
+    </div>
+  </div>
+  <div style="overflow-x:auto">
+    <table>
+      <tr>
+        {% for h in table.headers %}
+        <th {% if h.numeric %}style="text-align:right"{% endif %}>
+          {% if h.sortable %}<a href="{{ h.url }}" style="color:inherit;text-decoration:none">{{ h.label }}{% if h.active %} {% if h.desc %}&#9660;{% else %}&#9650;{% endif %}{% endif %}</a>{% else %}{{ h.label }}{% endif %}
+        </th>
+        {% endfor %}
+      </tr>
+      {% for row in table.rows %}
+      <tr>
+        {% for c in row %}
+        <td {% if c.numeric %}style="text-align:right"{% endif %}>
+          {% if c.url %}<a href="{{ c.url }}" style="font-weight:600;text-decoration:none">{% if c.mono %}<span class="code">{{ c.text }}</span>{% else %}{{ c.text }}{% endif %}</a>
+          {% elif c.pill %}<span class="pill {{ c.pill }}">{{ c.text }}</span>
+          {% elif c.mono %}<span class="code">{{ c.text }}</span>
+          {% else %}{{ c.text }}{% endif %}
+        </td>
+        {% endfor %}
+      </tr>
+      {% empty %}
+      <tr><td colspan="{{ table.columns|length }}" class="empty">No rows match.</td></tr>
+      {% endfor %}
+    </table>
+  </div>
+  {% if table.page.paginator.num_pages > 1 %}
+  <div class="row" style="justify-content:space-between;align-items:center;margin-top:12px">
+    <span class="muted">Page {{ table.page.number }} of {{ table.page.paginator.num_pages }}</span>
+    <span class="row">
+      {% if table.prev_url %}<a href="{{ table.prev_url }}"><button class="small" type="button">&larr; Previous</button></a>{% endif %}
+      {% if table.next_url %}<a href="{{ table.next_url }}"><button class="small" type="button">Next &rarr;</button></a>{% endif %}
+    </span>
+  </div>
+  {% endif %}
+</div>

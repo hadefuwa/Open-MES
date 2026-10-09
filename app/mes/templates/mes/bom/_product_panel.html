@@ -1,0 +1,46 @@
+{% load bom_tags %}
+{% first_level_bom product as lines %}
+{% direct_where_used product as parents %}
+{% finished_where_used product as finished %}
+{% if lines %}
+<div class="card" style="margin-top:14px">
+  <div class="card-head">
+    <h2>Bill of materials</h2>
+    <div class="row" style="align-items:center">
+      <span class="hint">{{ lines|length }} line{{ lines|length|pluralize }} &middot; BOM cost <strong>&pound;{{ product.bom_cost|floatformat:2 }}</strong></span>
+      <a href="{% url 'bom' product.pk %}"><button class="small" type="button">View full BOM</button></a>
+    </div>
+  </div>
+  <div style="overflow-x:auto"><table>
+    <tr><th>Code</th><th>Name</th><th style="text-align:right">Qty</th><th style="text-align:right">Unit cost</th><th style="text-align:right">Line cost</th></tr>
+    {% for line, cost, line_cost in lines %}
+    <tr>
+      <td><a href="{% if line.child.kind == 'component' %}{% url 'component_detail' line.child.pk %}{% else %}{% url 'bom' line.child.pk %}{% endif %}" style="text-decoration:none;font-weight:600"><span class="code">{{ line.child.code }}</span></a></td>
+      <td>{{ line.child.name }}{% if line.child.kind != 'component' %} <span class="pill info">{{ line.child.get_kind_display }}</span>{% endif %}</td>
+      <td style="text-align:right">{{ line.quantity|floatformat:"-2" }}</td>
+      <td style="text-align:right">&pound;{{ cost|floatformat:2 }}</td>
+      <td style="text-align:right">&pound;{{ line_cost|floatformat:2 }}</td>
+    </tr>
+    {% endfor %}
+  </table></div>
+</div>
+{% endif %}
+{% if parents %}
+<div class="card" style="margin-top:14px">
+  <div class="card-head">
+    <h2>Where used</h2>
+    <span class="hint">{{ parents|length }} direct parent{{ parents|length|pluralize }}{% if finished %} &middot; ends up in {{ finished|length }} finished product{{ finished|length|pluralize }}{% endif %}</span>
+  </div>
+  <div style="overflow-x:auto"><table>
+    <tr><th>Parent</th><th>Name</th><th>Type</th><th style="text-align:right">Qty per parent</th></tr>
+    {% for line in parents %}
+    <tr>
+      <td><a href="{{ line.parent.get_absolute_url }}" style="text-decoration:none;font-weight:600"><span class="code">{{ line.parent.code }}</span></a></td>
+      <td>{{ line.parent.name }}</td>
+      <td><span class="pill {% if line.parent.kind == 'finished' %}ok{% else %}info{% endif %}">{{ line.parent.get_kind_display }}</span></td>
+      <td style="text-align:right">{{ line.quantity|floatformat:"-2" }}</td>
+    </tr>
+    {% endfor %}
+  </table></div>
+</div>
+{% endif %}
