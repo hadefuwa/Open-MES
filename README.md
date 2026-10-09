@@ -1,3 +1,7 @@
+> **This repository has been split and archived.** Development continues in two repositories:
+> - [open-mes-demo-server](https://github.com/hadefuwa/open-mes-demo-server): the runnable application with dummy demo data.
+> - [open-mes-demo-static](https://github.com/hadefuwa/open-mes-demo-static): the read-only browser demo and its builder (live at https://hadefuwa.github.io/open-mes-demo-static/).
+
 # Open-MES
 
 **Open-MES** is an open-source Manufacturing Execution System (MES) layer for discrete manufacturers. It tracks work orders from entry to completion, serialised units and their test results, bills of materials and cost to manufacture, machines and routings, planning, and defects, with every record linked to every other and every table exportable to CSV.
