@@ -65,6 +65,7 @@ TEMPLATES = [
                 'django.contrib.messages.context_processors.messages',
                 'mes.context.alerts',
                 'mes.context.breadcrumbs',
+                'mes.context.static_export',
             ],
         },
     },
@@ -131,3 +132,6 @@ MES_LABOUR_RATE_PER_HOUR = 28
 # Which data pack `manage.py seed` loads (see mes/datapacks), and where real source workbooks live.
 MES_DATA_PACK = os.environ.get("MES_DATA_PACK", "generic")
 MES_DATA_DIR = Path(os.environ.get("MES_DATA_DIR") or BASE_DIR.parent / "data")
+
+# Set only by `manage.py build_static_site`: renders pages for the read-only static copy of the demo.
+MES_STATIC_EXPORT = False

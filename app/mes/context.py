@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.urls import reverse
 
 from .models import (CustomerOrder, Machine, Product, TestReport, WorkOrder)
@@ -75,3 +76,8 @@ def breadcrumbs(request):
     else:
         return {"breadcrumbs": []}
     return {"breadcrumbs": trail}
+
+
+def static_export(request):
+    """True while building the static GitHub Pages copy of the demo (see build_static_site)."""
+    return {"static_export": bool(getattr(settings, "MES_STATIC_EXPORT", False))}

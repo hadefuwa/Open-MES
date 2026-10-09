@@ -30,6 +30,10 @@ The software is generic; datasets are **packs** in `app/mes/datapacks/` (plain-d
 
 Importers: `mes/bom_import.py` (BOM explosion sheets, flat design BOMs, stock master), `mes/pricing.py` (price list, RRP-based cost calibration), `mes/importers.py` (test-report workbooks). They match sheets by header row and ignore unknown sheets.
 
+## Static demo
+
+`manage.py build_static_site` renders the whole app as a read-only static site (GitHub Pages) from the database, with `MES_STATIC_EXPORT` on: `_table.html` and `base.html` switch to a client-side mode, `mes/static_site/demo.js` does search, sort, CSV export and form navigation in the browser, and POST actions show a read-only notice. `scripts/build_static_site.py` builds it from the generic pack with a throwaway DB. `tests_static_site.py` builds the full site and fails on any broken link. When you add a GET form or a table, check it still works in static mode. Notes: [Docs/STATIC-DEMO.md](Docs/STATIC-DEMO.md).
+
 ## Conventions
 
 - Keep the public tree free of real business data: product codes, staff names, customers, prices and source workbooks belong in private packs and git-ignored `data/` folders. `tests_datapacks.py` checks the generic pack stays clean.

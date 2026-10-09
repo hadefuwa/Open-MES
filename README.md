@@ -4,6 +4,8 @@
 
 It runs out of the box on **dummy data** for an invented training-equipment maker, so you can click through every feature straight after cloning.
 
+**Try it without installing anything:** the [static demo](https://hadefuwa.github.io/Open-MES/) is a read-only copy that runs entirely in your browser (see [Docs/STATIC-DEMO.md](Docs/STATIC-DEMO.md)).
+
 ## Features
 
 - **Work orders**: Entered → Allocated → Issued → In progress → QA → Complete, with a board, a technician job sheet, a printable work order and QA sign-off.
@@ -49,5 +51,6 @@ app/
   mes/               the application (models, views, importers, costing, tables)
     datapacks/       datasets: generic (dummy data) and any packs you add
     demo/            shared demo-data generators used by the seed command
-Docs/                plans and the data-pack guide
+scripts/             build_static_site.py builds the GitHub Pages demo
+Docs/                plans, the data-pack guide and the static-demo notes
 ```

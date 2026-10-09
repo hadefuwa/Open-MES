@@ -9,3 +9,7 @@ Docs/Examples/
 *.xlsx
 *.xlsm
 *.csv
+
+# Generated static demo site and release bundles
+/site/
+/dist/

@@ -25,6 +25,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from urllib.parse import urlencode
 
+from django.conf import settings
 from django.core.paginator import Paginator
 from django.http import HttpResponse
 from django.utils import timezone
@@ -181,6 +182,8 @@ def build_table(request, columns, rows, filename="export", per_page=50, default_
             writer.writerow([_csv_value(_get(r, c.value)) for c in columns])
         return None, response
 
+    if getattr(settings, "MES_STATIC_EXPORT", False):
+        per_page = max(per_page, len(rows), 1)  # the static copy shows every row; the browser does the rest
     page = Paginator(rows, per_page).get_page(get.get("page"))
     cells = []
     for r in page.object_list:
