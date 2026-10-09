@@ -51,14 +51,18 @@ def read_price_list(path, skip_sections=()):
     return items
 
 
-def import_price_list(path, skip_sections=()):
-    """Create or update products from the price list. Returns (created, updated)."""
+def import_price_list(path, skip_sections=(), estimate_cost=True):
+    """Create or update products from the price list. Returns (created, updated).
+
+    With `estimate_cost`, newly created products get a unit cost of RRP / 3 (a demo convenience). Turn it
+    off to leave the cost blank until real costs are imported."""
     created = updated = 0
     for section, code, desc, price in read_price_list(path, skip_sections):
         product = Product.objects.filter(code=code).first()
         if product is None:
             Product.objects.create(code=code, name=desc or code, kind=Product.FINISHED, rrp=price,
-                                   range_name=section, unit_cost=_money(price / COST_RATIO))
+                                   range_name=section,
+                                   unit_cost=_money(price / COST_RATIO) if estimate_cost else None)
             created += 1
         else:
             product.rrp, product.rrp_estimated = price, False

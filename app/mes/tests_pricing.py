@@ -77,3 +77,14 @@ class PricingTest(TestCase):
         self.assertEqual(sorted(codes), ["XX1000", "XX2000"])
         detail = self.client.get(reverse("product_detail", args=[Product.objects.get(code="XX1000").pk]))
         self.assertContains(detail, "£900.00")
+
+
+class PriceListWithoutCostEstimateTest(TestCase):
+    def test_new_products_keep_a_blank_cost_when_estimating_is_off(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "prices.xlsx")
+            make_workbook(path)
+            pricing.import_price_list(path, estimate_cost=False)
+        new = Product.objects.get(code="XX2000")
+        self.assertEqual(new.rrp, Decimal("600"))
+        self.assertIsNone(new.unit_cost)
